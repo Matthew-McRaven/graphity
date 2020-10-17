@@ -5,5 +5,5 @@ setup(name='graphity',
       description='Research in background independent quantum gravity, also known as quantum graphity.',
       author='Matthew McRaven',
       author_email='mkm302@georgetown.edu',
-      packages=['graphity', 'graphity.env', 'graphity.agent', 'graphity.graph'],
+      packages=['graphity', 'graphity.environment', 'graphity.agent', 'graphity.graph'],
      )

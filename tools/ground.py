@@ -1,11 +1,11 @@
 import torch
 
-import graphity.env.reward, graphity.env.sim
+import graphity.environment.reward, graphity.environment.sim
 import graphity.agent.markov
 
 size = 10
 agent = graphity.agent.markov.MDPAgent()
-env = graphity.env.sim.Simulator()
+env = graphity.environment.sim.Simulator()
 
 state=torch.ones((size, size), dtype=torch.int64)
 

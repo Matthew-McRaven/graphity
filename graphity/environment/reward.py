@@ -16,7 +16,8 @@ class ASquaredD:
             assert False and "Batched input can have at most 3 dimensions" 
 
         # For each matrix in the batch, compute the adjacency matrix^2.
-        temp = torch.sub(torch.matmul(adj, adj),self.d)
+        temp = torch.matmul(adj, adj)
+        temp = torch.sub(temp, self.d)
         # Construct a matrix only containing diagonal
         diag = temp.diagonal(dim1=-2,dim2=-1)
         temp_diag = (diag)
@@ -24,5 +25,5 @@ class ASquaredD:
         temp -= temp_diag
         
         # Sum over the last two dimensions, leaving us with a 1-d array of values.
-        return torch.sum(temp, (1,2)).pow(2)
+        return torch.sum(temp.pow(2), (1,2))
 

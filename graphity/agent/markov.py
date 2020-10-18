@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 from numpy.random import Generator, PCG64
+import numpy as np
 
-class MDPAgent(nn.Module):
+# The random agent random selects one edge pair to toggle per timestep.
+class RandomAgent(nn.Module):
     def __init__(self):
         # Must initialize torch.nn.Module
-        super(MDPAgent, self).__init__()
+        super(RandomAgent, self).__init__()
         # I like the PCG RNG, and since we aren't trying to "learn"
         # anything for this agent, numpy's RNGs are fine
         self.rng = Generator(PCG64())
@@ -24,7 +26,7 @@ class MDPAgent(nn.Module):
         elif len(adj.shape) > 3:
             assert False and "Batched input can have at most 3 dimensions" 
         # Generate a single pair of random numbers for each adjacency matrix in the batch,
-        randoms = self.rng.integers(0,high=adj.shape[-1],size=[adj.shape[0],2])
+        randoms = self.rng.integers(0, high=adj.shape[-1],size=[adj.shape[0],2])
         # We want to work on tensors, not numpy objects. Respect the device from which the input came.
         randoms = torch.tensor(randoms, device=adj.device)
         return randoms

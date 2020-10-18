@@ -1,5 +1,6 @@
 decorator==4.4.2
 future==0.18.2
+matplotlib==3.3.2
 networkx==2.5
 numpy==1.19.2
 Pillow==8.0.0

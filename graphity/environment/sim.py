@@ -1,6 +1,6 @@
 import torch
 
-import graphity.environment.reward
+import graphity.environment.reward, graphity.environment.toggle
 import graphity.graph.generate, graphity.graph.utils
 """
 A simulator for quantum graphity.
@@ -39,16 +39,9 @@ class Simulator:
     def step(self, action):
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.clone()
-
         # For each index in the action list, apply the toggles.
         for (i,j) in action:
-            # If our action falls on the diagonal, only allow change if we allow self loops.
-            if i == j and self.allow_self_loop:
-                next_state[i, j] = next_state[i, j] ^ 1
-            # Otherwise, toggle undirected edge between both nodes.
-            else:
-                next_state[i, j] = next_state[i, j] ^ 1
-                next_state[j, i] = next_state[j, i] ^ 1
+            graphity.environment.toggle.toggle_edge(int(i), int(j), next_state, self.allow_self_loop)
 
         # Update self pointer, and score state.
         self.state = next_state

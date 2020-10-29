@@ -9,7 +9,7 @@ setup(name='graphity',
       packages=['graphity',
       'graphity.agent',
       'graphity.environment', 
-      'graphity.graph',
+      'graphity.graph', 'graphity.grad',
       'graphity.replay',  
       'graphity.train'],
      )

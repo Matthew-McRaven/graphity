@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from numpy.random import Generator, PCG64, random
 
 # Needed for add_agent_attr() decorator
 import graphity.agent
+
 # The random agent random selects one edge pair to toggle per timestep.
 @graphity.agent.add_agent_attr()
 class RandomAgent(nn.Module):

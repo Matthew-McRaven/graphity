@@ -15,14 +15,13 @@ class RandomAgent(nn.Module):
         # I like the PCG RNG, and since we aren't trying to "learn"
         # anything for this agent, numpy's RNGs are fine
         self.rng = Generator(PCG64())
-        self.toggles_per_step = hypers['toggles_per_step']
 
     # Our action is just asking the pytorch implementation for a random set of nodes.
-    def act(self, adj):
-        return self.forward(adj)
+    def act(self, adj, toggles=1):
+        return self.forward(adj, toggles)
 
     # Implement required pytorch interface
-    def forward(self, adj):
+    def forward(self, adj, toggles=1):
         # Force all tensors to be batched.
         if len(adj.shape) == 2:
             adj = adj.view(1,*adj.shape)
@@ -31,11 +30,11 @@ class RandomAgent(nn.Module):
         elif len(adj.shape) > 3:
             assert False and "Batched input can have at most 3 dimensions" 
         # Generate a single pair of random numbers for each adjacency matrix in the batch,
-        randoms = self.rng.integers(0, high=adj.shape[-1],size=[self.toggles_per_step,2])
+        randoms = self.rng.integers(0, high=adj.shape[-1], size=[toggles, 2])
         # We want to work on tensors, not numpy objects. Respect the device from which the input came.
         randoms = torch.tensor(randoms, device=adj.device)
         # All actions are equally likely, so our chance of choosing this pair is 1/(number of edge pairs) ** (number of edges)
-        return randoms, torch.full((1,),1/adj.shape[-1]**(2*self.toggles_per_step)).log()
+        return randoms, torch.full((1,),1/adj.shape[-1]**(2*toggles)).log()
 
 # Markov agent is willing to back out last edge, with some prbability, if that action increased the energy of the sytstem.
 # This "regret" factor is beta, the inverse of the temperature.
@@ -47,7 +46,6 @@ class MDPAgent(nn.Module):
         # I like the PCG RNG, and since we aren't trying to "learn"
         # anything for this agent, numpy's RNGs are fine
         self.rng = Generator(PCG64())
-        self.toggles_per_step = hypers['toggles_per_step']
         # Multipliciative inverse of the temperature of the system.
         self.beta = beta
         # Last two (action, reward pairs)
@@ -57,8 +55,8 @@ class MDPAgent(nn.Module):
         self.am1 = None
 
     # Our action is just asking the pytorch implementation for a random set of nodes.
-    def act(self, adj):
-        return self.forward(adj)
+    def act(self, adj, toggles=1):
+        return self.forward(adj, toggles)
 
     # Callback, which will allow us to "undo" our last action if it is worse.
     def act_callback(self, _, reward):
@@ -67,15 +65,15 @@ class MDPAgent(nn.Module):
         self.arm1 = (self.am1, reward)
 
     # Generate a random adjacency flip on matrix adj.
-    def random(self, adj):
+    def random(self, adj, toggles):
         # Generate a single pair of random numbers for each adjacency matrix in the batch.
-        randoms = self.rng.integers(0, high=adj.shape[-1],size=[self.toggles_per_step,2])
+        randoms = self.rng.integers(0, high=adj.shape[-1], size=[toggles, 2])
         # We want to work on tensors, not numpy objects. Respect the device from which the input came.
         randoms = torch.tensor(randoms, device=adj.device)
         return randoms
 
     # Implement required pytorch interface
-    def forward(self, adj):
+    def forward(self, adj, toggles=1):
         # Force all tensors to be batched.
         if len(adj.shape) == 2:
             adj = adj.view(1,*adj.shape)
@@ -88,10 +86,10 @@ class MDPAgent(nn.Module):
         action, log_prob = None, None
         # If we do not have two look-back states, we can't make inferences about environment.
         if not self.arm1 or not self.arm2:
-            action = self.random(adj)
+            action = self.random(adj, toggles)
             # Not enough info to back out an action, so our probability of choosing
             # an action is just the probability of choosing a random edge pair.
-            log_prob = torch.full((1,),1/adj.shape[-1]**(2*self.toggles_per_step)).log()
+            log_prob = torch.full((1,),1/adj.shape[-1]**(2*toggles)).log()
         else:
             # Otherwise, we need to compute how much system energy changed.
             delta_e = self.arm1[1] - self.arm2[1]
@@ -109,15 +107,15 @@ class MDPAgent(nn.Module):
                     # The probability of this action is the probability of us failing the roll.
                     log_prob = torch.full((1,), to_beat.item()).log()
                 else:
-                    action = self.random(adj)
+                    action = self.random(adj, toggles)
                     # The probability of this action is the probability of beating the roll
                     # and randomly choosing this edge.
-                    log_prob = ((1-to_beat)*torch.full((1,),1/adj.shape[-1]**(2*self.toggles_per_step))).log()
+                    log_prob = ((1-to_beat)*torch.full((1,),1/adj.shape[-1]**(2*toggles))).log()
             else:
-                action = self.random(adj)
+                action = self.random(adj, toggles)
                 # Okay, this term should be more complex, because it ignores the probability delta_e > 0.
                 # However, let's assume actions dn't have mutual dependence
-                log_prob = torch.full((1,),1/adj.shape[-1]**(2*self.toggles_per_step)).log()
+                log_prob = torch.full((1,),1/adj.shape[-1]**(2*toggles)).log()
         # Must cache last action here, because it isn't available in act_callback(...)
         self.am1 = action
         return action, log_prob

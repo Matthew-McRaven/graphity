@@ -20,8 +20,6 @@ class MLPActor(nn.Module):
         super(MLPActor, self).__init__()
         
         self.input_dimensions = input_dimensions
-        # TODO: toggle more than one edgepair per timestep.
-        self.toggles_per_step = hypers['toggles_per_step']
         # Cache hyperparameters locally.
         self.hypers = hypers
 
@@ -52,7 +50,7 @@ class MLPActor(nn.Module):
             if x.dim() > 1:
                 nn.init.kaiming_normal_(x)
 
-    def forward(self, input):
+    def forward(self, input, toggles):
         # TODO: Handle batched inputs
         input = input.view(self.input_dimensions)
         # Push observations through feed forward layers.
@@ -87,7 +85,7 @@ class MLPActor(nn.Module):
         # need to know what kind of distribution to re-create.
         policy = graphity.nn.policy.BiCategoricalPolicy(first_seed, second_seed)
         # Sample edge pair to toggle
-        actions = policy.sample((self.toggles_per_step,))
+        actions = policy.sample((toggles,))
         # Each actions is drawn independtly of others, so joint prob
         # is all of them multiplied together. However, since we have logprobs,
         # we need to sum instead.

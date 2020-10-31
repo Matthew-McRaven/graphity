@@ -38,7 +38,7 @@ def simulate_epoch(hypers, agent, env, logger=None):
                     # Log current state.
                     state_buffer.log_state(episode, t, state)
 
-                action, logprob_action = agent.act(state)
+                action, logprob_action = agent.act(state, hypers['toggles_per_step'])
                 
                 if log_actions:
                     # Log action to logger

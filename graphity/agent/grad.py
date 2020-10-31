@@ -17,13 +17,12 @@ class GradientFollowingAgent(nn.Module):
         # anything for this agent, numpy's RNGs are fine
         self.rng = Generator(PCG64())
         self.H = H
-        self.toggles_per_step = hypers['toggles_per_step']
 
-    def act(self, adj):
-        return self.forward(adj)
+    def act(self, adj, toggles=1):
+        return self.forward(adj, toggles)
 
     # Implement required pytorch interface
-    def forward(self, adj):
+    def forward(self, adj, toggles=1):
         size = adj.shape[-1]
         grad = graphity.grad.graph_gradient(adj, self.H).tril()
 
@@ -32,7 +31,7 @@ class GradientFollowingAgent(nn.Module):
         grad = (grad + upper_inf).view(-1)
 
         # Pick k transitions than minimize energy the most.
-        _, indicies = torch.topk(grad, self.toggles_per_step, largest=False)
+        _, indicies = torch.topk(grad, toggles, largest=False)
 
         # Contains all of the columns
         first = indicies // (size)

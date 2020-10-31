@@ -16,7 +16,7 @@ import graphity.hypers, graphity.train
 def main():
     hypers = graphity.hypers.get_default_hyperparams()
 
-    hypers['epochs'] = 10
+    hypers['epochs'] = 4
     hypers['episode_count'] = 4
     hypers['episode_length'] = 100
     hypers['graph_size'] = 6
@@ -24,13 +24,13 @@ def main():
 
     # Environment definition
     H = graphity.environment.reward.LogASquaredD(2)
-    env = graphity.environment.sim.BatchSimulator(1,graph_size=hypers['graph_size'], H=H)
+    env = graphity.environment.sim.Simulator(graph_size=hypers['graph_size'], H=H)
 
     # Stochastic agents
     #agent = graphity.agent.markov.RandomAgent(hypers)
     #agent = graphity.agent.markov.MDPAgent(hypers)
     # Gradient descent agents
-    #agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
+    agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
     # Neural-network based agents
     value_net = graphity.nn.critic.MLPCritic(hypers['graph_size']**2, hypers)
     policy_net = graphity.nn.actor.MLPActor(hypers['graph_size']**2, hypers)
@@ -40,7 +40,7 @@ def main():
     # Change policy loss fn to change behavior of agent.
     #policy_loss = graphity.nn.update_rules.PGB(value_net, hypers)
     policy_loss = graphity.nn.update_rules.PPO(value_net, hypers)
-    agent = graphity.agent.pg.ActorCriticAgent(hypers, value_net, policy_net, policy_loss)
+    #agent = graphity.agent.pg.ActorCriticAgent(hypers, value_net, policy_net, policy_loss)
 
     # Show the NN configuration on the console.
     print(agent)

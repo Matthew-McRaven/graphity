@@ -29,12 +29,12 @@ class REINFORCEAgent(nn.Module):
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
         self.hypers = hypers
 
-    def act(self, state):
-        return self(state)
+    def act(self, state, toggles=1):
+        return self(state, toggles)
 
-    def forward(self, state):
+    def forward(self, state, toggles=1):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.actor_net(state)
+        actions, logprobs, self.policy_latest = self.actor_net(state, toggles)
         return actions, logprobs
 
     def update(self, state_buffer, action_buffer, reward_buffer, policy_buffer):
@@ -69,15 +69,15 @@ class ActorCriticAgent(nn.Module):
         # TODO: Optimize with something other than ADAM.
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
 
-    def act(self, state):
-        return self(state)
+    def act(self, state, toggles=1):
+        return self(state, toggles)
 
     def value(self, state):
         return self.critic_net(state)
 
-    def forward(self, state):
+    def forward(self, state, toggles=1):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.actor_net(state)
+        actions, logprobs, self.policy_latest = self.actor_net(state, toggles)
         return actions, logprobs
 
     def update(self, state_buffer, action_buffer, reward_buffer, policy_buffer):

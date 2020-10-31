@@ -1,8 +1,8 @@
 
-def add_agent_attr(probability_based=False, allow_callback=False, allow_update=False):
+def add_agent_attr(policy_based=False, allow_callback=False, allow_update=False):
     def deco(cls):
         attrs = {}
-        attrs['probability_based'] = probability_based
+        attrs['policy_based'] = policy_based
         attrs['allow_callback'] = allow_callback
         attrs['allow_update'] = allow_update
         for attr in attrs:

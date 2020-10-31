@@ -10,6 +10,7 @@ setup(name='graphity',
       'graphity.agent',
       'graphity.environment', 
       'graphity.graph', 'graphity.grad',
+      'graphity.nn',
       'graphity.replay',  
       'graphity.train'],
      )

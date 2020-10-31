@@ -1,15 +1,29 @@
 log_actions = True
 log_rewards = True
 log_state = True
-log_policies = True
 summarize_epoch = False
 
 import graphity.replay
 import torch
 
-def simulate_epoch(hypers, agent, env, state_buffer, action_buffer, reward_buffer, policy_buffer=None):
+# TODO: use logger to report important information during training.
+# TODO: Implement k-fold validation acrss trajectories.
+# TODO: Allow user to signal if they want to allocate replay buffers.
+def simulate_epoch(hypers, agent, env, logger=None):
+    # TODO: Only allocate a replay buffer if is needed AND requested.
+    state_buffer = graphity.replay.StateBuffer(hypers['episode_count'], hypers['episode_length'], (hypers['graph_size'], hypers['graph_size']))
+    action_buffer = graphity.replay.ActionBuffer(hypers['episode_count'], hypers['episode_length'], (2,))
+    reward_buffer = graphity.replay.RewardBuffer(hypers['episode_count'], hypers['episode_length'], (1,))
+    policy_buffer = None
+
+    # Don't allocate buffers for policy replay if it is unused. Can waste a bunch of memory.
+    if agent.policy_based:
+        policy_buffer = graphity.replay.PolicyBuffer(hypers['episode_count'], hypers['episode_length'])
+
     for epoch in range(hypers['epochs']):
-        # Clear all buffers at start of epoch
+
+        # Clear all buffers at start of epoch.
+        # Failing to do so will anger the optimizer.
         state_buffer.clear()
         action_buffer.clear()
         reward_buffer.clear()
@@ -34,17 +48,19 @@ def simulate_epoch(hypers, agent, env, state_buffer, action_buffer, reward_buffe
 
                 state, reward = env.step(action)
 
+                # Log reward at t.
                 if log_rewards:
-                    # Log reward at t.
                     reward_buffer.log_rewards(episode, t, reward)
-                # Record (state, action, reward, is_done) tuple to logger.
+
+                # Allow the agent to receive immediate feedback from the environment
+                # if it is requested/
                 if agent.allow_callback:
                     agent.act_callback(state, reward)
-                #print(f"{t}")
 
-        # If the agent is allowed to learn, pass the logger and any replay buffers to the agent so it may learn.
+        # If the agent is allowed to learn, assume it needs all replay buffers.
         if agent.allow_update:
             agent.update(state_buffer, action_buffer, reward_buffer, policy_buffer)
+
         if summarize_epoch:
             assert 0
 

@@ -4,10 +4,11 @@ import torch.nn as nn
 import torch.distributions, torch.nn.init
 from torch.nn.modules.loss import MSELoss
 import torch.optim
+
 # Network that learns the expected reward from a state.
-class MLPValueNetwork(nn.Module):
+class MLPCritic(nn.Module):
     def __init__(self, input_dimensions,hypers, layers=[100, 100, 1]):
-        super(MLPValueNetwork, self).__init__()
+        super(MLPCritic, self).__init__()
         self.input_dimensions = input_dimensions
         self.output_dimensions = layers[-1]
 

@@ -30,4 +30,6 @@ class GradientFollowingAgent(nn.Module):
         x, y = idx//size, idx%size
         actions = torch.tensor([[x,y]], device=adj.device, dtype=torch.uint8)
         #print(actions)
-        return actions
+        # Our probability of choosing the current action is 1, because we only choose the best option.
+        # Therefore log prob = 0
+        return actions, torch.zeros((1,))

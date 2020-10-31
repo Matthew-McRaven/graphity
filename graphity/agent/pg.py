@@ -20,13 +20,13 @@ import graphity.replay
 # It caches the last generated policy in self.policy_latest, which can be sampled for additional actions.
 @graphity.agent.add_agent_attr(allow_update=True, policy_based=True)
 class REINFORCEAgent(nn.Module):
-    def __init__(self, hypers, policy_net):
+    def __init__(self, hypers, actor_net):
         super(REINFORCEAgent, self).__init__()
         # Cache the last generated policy, so that we can sample for additional actions.
         self.policy_latest = None
-        self.policy_net = policy_net
-        self.policy_loss = losses.VPG()
-        self.policy_optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
+        self.actor_net = actor_net
+        self.actor_loss = losses.VPG()
+        self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
         self.hypers = hypers
 
     def act(self, state):
@@ -34,15 +34,15 @@ class REINFORCEAgent(nn.Module):
 
     def forward(self, state):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.policy_net(state)
+        actions, logprobs, self.policy_latest = self.actor_net(state)
         return actions, logprobs
 
     def update(self, state_buffer, action_buffer, reward_buffer, policy_buffer):
         for i in range(1):
-            self.policy_optimizer.zero_grad()
-            policy_loss = self.policy_loss(state_buffer, action_buffer, reward_buffer, policy_buffer)
-            policy_loss.backward()
-            self.policy_optimizer.step()
+            self.actor_optimizer.zero_grad()
+            actor_loss = self.actor_loss(state_buffer, action_buffer, reward_buffer, policy_buffer)
+            actor_loss.backward()
+            self.actor_optimizer.step()
 
 # Implement a common framework for all synchronous actor-critic methods.
 # It achieves this versatility by allowing you to specify the policy loss
@@ -52,48 +52,52 @@ class REINFORCEAgent(nn.Module):
 # It caches the last generated policy in self.policy_latest, which can be sampled for additional actions.
 @graphity.agent.add_agent_attr(allow_update=True, policy_based=True)
 class ActorCriticAgent(nn.Module):
-    def __init__(self, hypers,value_net, policy_net, policy_loss):
+    def __init__(self, hypers, critic_net, actor_net, actor_loss):
         super(ActorCriticAgent, self).__init__()
+        self.hypers = hypers
+
         # Trust that the caller gave a reasonable value network.
-        self.value_net = value_net
+        self.critic_net = critic_net
         # Goal of our value network (aka the critic) is to make our actual and expected values be equal.
-        self.value_loss = torch.nn.MSELoss(reduction="sum")
+        self.critic_loss = torch.nn.MSELoss(reduction="sum")
         # TODO: Optimize with something other than ADAM.
-        self.value_optimizer = torch.optim.Adam(self.value_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
+        self.critic_optimizer = torch.optim.Adam(self.critic_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
 
         self.policy_latest = None
-        self.policy_net = policy_net
-        self.policy_loss = policy_loss
+        self.actor_net = actor_net
+        self.actor_loss = actor_loss
         # TODO: Optimize with something other than ADAM.
-        self.policy_optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
-        self.hypers = hypers
+        self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
 
     def act(self, state):
         return self(state)
 
     def value(self, state):
-        return self.value_net(state)
+        return self.critic_net(state)
 
     def forward(self, state):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.policy_net(state)
+        actions, logprobs, self.policy_latest = self.actor_net(state)
         return actions, logprobs
 
     def update(self, state_buffer, action_buffer, reward_buffer, policy_buffer):
-        # Train value network.
+        # Train critic (value) network.
         # Papers suggest training the critic more often than the actor network.
+        # TODO: vary number of iterations the critic is trained for. 
         for i in range(20):
-            self.value_optimizer.zero_grad()
+            self.critic_optimizer.zero_grad()
+            # Must reshape states to be a batched 1d array.
+            # TODO: Will need different reshaping for CNN's.
             states = state_buffer.states
             states = states.view(*(states.shape[0:2]),-1)
-            value_loss = self.value_loss(self.value_net(states), reward_buffer.rewards)
+            critic_loss = self.critic_loss(self.critic_net(states), reward_buffer.rewards)
             #print(f"Value loss: {value_loss.item()}")
-            value_loss.backward()
-            self.value_optimizer.step()
+            critic_loss.backward()
+            self.critic_optimizer.step()
 
-        # Train policy network.
+        # Train actor (policy) network.
         for i in range(1):
-            self.policy_optimizer.zero_grad()
-            policy_loss = self.policy_loss(state_buffer, action_buffer, reward_buffer, policy_buffer)
-            policy_loss.backward()
-            self.policy_optimizer.step()
+            self.actor_optimizer.zero_grad()
+            actor_loss = self.actor_loss(state_buffer, action_buffer, reward_buffer, policy_buffer)
+            actor_loss.backward()
+            self.actor_optimizer.step()

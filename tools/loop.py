@@ -24,7 +24,7 @@ def main():
 
     # Environment definition
     H = graphity.environment.reward.LogASquaredD(2)
-    env = graphity.environment.sim.Simulator(graph_size=hypers['graph_size'], H=H)
+    env = graphity.environment.sim.BatchSimulator(1,graph_size=hypers['graph_size'], H=H)
 
     # Stochastic agents
     #agent = graphity.agent.markov.RandomAgent(hypers)

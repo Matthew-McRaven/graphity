@@ -1,4 +1,7 @@
+import itertools
+
 import torch
+import numpy as np
 
 import graphity.environment.reward, graphity.environment.toggle
 import graphity.graph.generate, graphity.graph.utils
@@ -49,3 +52,27 @@ class Simulator:
         #print(energy)
         return self.state, energy
 
+class BatchSimulator:
+    def __init__(self, batch_size, H=graphity.environment.reward.ASquaredD(2), graph_size=4, allow_self_loop=False, allow_cuda=False):
+        sims = [Simulator(H=H, graph_size=graph_size, allow_self_loop=allow_self_loop, allow_cuda=allow_cuda) for i in range(batch_size)]
+        self.sims = np.asarray(sims, dtype=object)
+        self.batch_size = batch_size
+
+    def reset(self, start_states=[None]):
+        if start_states != [None]:
+            assert len(start_states) == self.batch_size
+        itsy = itertools.zip_longest(self.sims, start_states)
+        bitsy = list(map(lambda s: s[0].reset(s[1]), itsy))
+        return torch.stack(bitsy)
+
+    def step(self, actions):
+
+        if len(actions.shape) == 2:
+            actions = actions.view(1, *actions.shape)
+
+        state, energy = [], []
+        for sim, action in zip(self.sims, actions):
+            lstate, lenergy = sim.step(action)
+            state.append(lstate)
+            energy.append(lenergy)
+        return torch.stack(state), torch.stack(energy)

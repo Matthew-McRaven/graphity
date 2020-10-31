@@ -21,7 +21,7 @@ class MLPActor(nn.Module):
         
         self.input_dimensions = input_dimensions
         # TODO: toggle more than one edgepair per timestep.
-        self.output_pairs = 1
+        self.toggles_per_step = hypers['toggles_per_step']
         # Cache hyperparameters locally.
         self.hypers = hypers
 
@@ -87,9 +87,11 @@ class MLPActor(nn.Module):
         # need to know what kind of distribution to re-create.
         policy = graphity.nn.policy.BiCategoricalPolicy(first_seed, second_seed)
         # Sample edge pair to toggle
-        actions = policy.sample((self.output_pairs,))
-        # Edges are independent of eachother, so joint probability is them multiplied together.
-        log_prob = policy.log_prob(actions)
+        actions = policy.sample((self.toggles_per_step,))
+        # Each actions is drawn independtly of others, so joint prob
+        # is all of them multiplied together. However, since we have logprobs,
+        # we need to sum instead.
+        log_prob = torch.sum(policy.log_prob(actions))
         # Arrange actions so they look like actions from other models.
 
         return actions, log_prob, policy

@@ -12,7 +12,7 @@ import torch
 def simulate_epoch(hypers, agent, env, logger=None):
     # TODO: Only allocate a replay buffer if is needed AND requested.
     state_buffer = graphity.replay.StateBuffer(hypers['episode_count'], hypers['episode_length'], (hypers['graph_size'], hypers['graph_size']))
-    action_buffer = graphity.replay.ActionBuffer(hypers['episode_count'], hypers['episode_length'], (2,))
+    action_buffer = graphity.replay.ActionBuffer(hypers['episode_count'], hypers['episode_length'], (hypers['toggles_per_step'], 2))
     reward_buffer = graphity.replay.RewardBuffer(hypers['episode_count'], hypers['episode_length'], (1,))
     policy_buffer = None
 
@@ -39,7 +39,7 @@ def simulate_epoch(hypers, agent, env, logger=None):
                     state_buffer.log_state(episode, t, state)
 
                 action, logprob_action = agent.act(state)
-
+                
                 if log_actions:
                     # Log action to logger
                     action_buffer.log_action(episode, t, action, logprob_action)

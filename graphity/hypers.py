@@ -8,6 +8,7 @@ def get_default_hyperparams():
     ret['episode_count'] = 1
     ret['episode_length'] = 10000
     ret['graph_size'] = 10
+    ret['toggles_per_step'] = 2
     # Neural net configurations
     ret['dropout'] = .1
     ret['l2'] = .1

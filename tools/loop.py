@@ -18,18 +18,19 @@ def main():
 
     hypers['epochs'] = 10
     hypers['episode_count'] = 4
-    hypers['episode_length'] = 2000
-    hypers['graph_size'] = 10
+    hypers['episode_length'] = 100
+    hypers['graph_size'] = 6
+    hypers['toggles_per_step'] = 2
 
     # Environment definition
     H = graphity.environment.reward.LogASquaredD(2)
     env = graphity.environment.sim.Simulator(graph_size=hypers['graph_size'], H=H)
 
     # Stochastic agents
-    #agent = graphity.agent.markov.RandomAgent()
-    #agent = graphity.agent.markov.MDPAgent()
+    #agent = graphity.agent.markov.RandomAgent(hypers)
+    #agent = graphity.agent.markov.MDPAgent(hypers)
     # Gradient descent agents
-    # agent = graphity.agent.grad.GradientFollowingAgent(H)
+    #agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
     # Neural-network based agents
     value_net = graphity.nn.critic.MLPCritic(hypers['graph_size']**2, hypers)
     policy_net = graphity.nn.actor.MLPActor(hypers['graph_size']**2, hypers)

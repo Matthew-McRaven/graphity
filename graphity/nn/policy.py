@@ -11,7 +11,8 @@ class BiCategoricalPolicy:
         self.second_dist = torch.distributions.Categorical(second_seed)
 
     def log_prob(self, actions):
-        return self.first_dist.log_prob(actions[:,0]) * self.second_dist.log_prob(actions[:,1])
+        # Since I'm dealing log probs rather than probs, must add together.
+        return self.first_dist.log_prob(actions[:,0]) + self.second_dist.log_prob(actions[:,1])
 
     def sample(self, size):
         # Sample edge pair to toggle

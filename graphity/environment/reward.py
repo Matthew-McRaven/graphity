@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 # Implement the hamiltonian discussed with Betre on 20201015
 class ASquaredD:
@@ -27,3 +28,24 @@ class ASquaredD:
         # Sum over the last two dimensions, leaving us with a 1-d array of values.
         return torch.sum(temp.pow(2), (1,2))
 
+# ASquaredD has explodes in high dimensions.
+# Taking the log of this number reduces growth to be more like N**2 rather than a**n**2.
+class LogASquaredD(ASquaredD):
+    def __init__(self, d):
+        super(LogASquaredD, self).__init__(d)
+    def __call__(self, adj):
+        return np.log(super(LogASquaredD, self).__call__(adj))
+
+# For *really* high dimensions, you may need nested logs.
+# However, this will torpedo the ablity to dilineate between states of
+# of similiar (but not identical) energy levels.
+class NestedLogASquaredD(ASquaredD):
+    def __init__(self, d, nesting):
+        super(NestedLogASquaredD, self).__init__(d)
+        self.nesting = nesting
+
+    def __call__(self, adj):
+        start = super(NestedLogASquaredD, self).__call__(adj)
+        for i in range(self.nesting):
+            start = np.log(start)
+        return start

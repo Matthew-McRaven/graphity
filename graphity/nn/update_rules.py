@@ -99,5 +99,5 @@ class PPO:
             ret[episode] = torch.sum(minterm - subterm)
         # Perform outer summation and divide by number of terms.
         loss = torch.mean(ret)
-        print(f"My loss is: {loss}")
+        #print(f"My loss is: {loss}")
         return loss

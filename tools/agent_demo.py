@@ -1,6 +1,7 @@
 """
 This program demonstrates how to train an agent end-to-end.
-It can be used to track the progress of multiple agents on the same task.
+It demonstrates all available agents.
+It also shows how to create a task distribution to sample from.
 """
 import torch
 
@@ -10,6 +11,7 @@ import graphity.grad
 import graphity.replay
 import graphity.environment.reward, graphity.environment.sim
 import graphity.hypers, graphity.train
+import graphity.task
 
 # Sample program that demonstrates how to create an agent & environment.
 # Then. train this agent for some number of epochs, determined by our hypers.
@@ -29,8 +31,10 @@ def main():
     # Stochastic agents
     #agent = graphity.agent.markov.RandomAgent(hypers)
     #agent = graphity.agent.markov.MDPAgent(hypers)
+
     # Gradient descent agents
     agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
+    
     # Neural-network based agents
     value_net = graphity.nn.critic.MLPCritic(hypers['graph_size']**2, hypers)
     policy_net = graphity.nn.actor.MLPActor(hypers['graph_size']**2, hypers)
@@ -45,7 +49,14 @@ def main():
     # Show the NN configuration on the console.
     print(agent)
 
-    graphity.train.simulate_epoch(hypers, agent, env)
+    # Define different sampling methods for points
+    random_sampler = graphity.task.RandomSampler(hypers['graph_size']**2)
+    checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
+    dist = graphity.task.TaskDistribution()
+    # Create a single task definition from which we can sample.
+    dist.add_task(graphity.task.TaskDefinition(checkpoint_sampler, policy_loss, hypers))
+
+    graphity.train.basic_task_loop(hypers, env, agent, dist)
 
 
 if __name__ == "__main__":

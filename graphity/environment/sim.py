@@ -27,7 +27,6 @@ class Simulator:
             # Require input matrix t be an adjacency matrix: (all 1's or 0's, square).
             assert graphity.graph.utils.is_adj_matrix(start_state)
             self.state = start_state
-            # Allow the
             self.graph_size = start_state.shape[-1]
         else:
             # Otherwise depend on our utils facility to give us a good graph.

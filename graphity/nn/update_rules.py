@@ -7,8 +7,9 @@ import graphity.replay
 
 # Vanilla policy gradient update / loss function.
 class VPG:
-    def __init__(self, gamma=.9):
-        self.gamma = gamma
+    def __init__(self, hypers):
+        self.gamma = hypers['gamma']
+
     def __call__(self, state_buffer, action_buffer, reward_buffer, policy_buffer):
         discounted = graphity.replay.ReturnAccumulator(reward_buffer, gamma=self.gamma)
         ret = torch.zeros((reward_buffer.episode_count,))
@@ -18,14 +19,14 @@ class VPG:
             ret[episode] = torch.sum(action_buffer.logprob_actions[episode, :]
                                      * discounted.discounted_rewards[episode, :])
         # Perform outer summation and divide by number of terms.
-        loss = torch.mean(ret)
-        return loss
+        return ret.mean()
         
 # Policy gradient with baseline update / loss function.
 class PGB:
     def __init__(self, critic_net, hypers):
         self.critic_net = critic_net
         self.gamma = hypers['gamma']
+
     def __call__(self, state_buffer, action_buffer, reward_buffer, policy_buffer):
         discounted = graphity.replay.ReturnAccumulator(reward_buffer, gamma=self.gamma)
         ret = torch.zeros((reward_buffer.episode_count,))
@@ -36,8 +37,7 @@ class PGB:
             ret[episode] = torch.sum(action_buffer.logprob_actions[episode, :]
                                      * discounted.discounted_rewards[episode, :] - value)
         # Perform outer summation and divide by number of terms.
-        loss = torch.mean(ret)
-        return loss
+        return ret.mean()
 
 # Proximal policy optimization update / loss function.
 class PPO:
@@ -66,6 +66,7 @@ class PPO:
             episode_states = episode_states.view(*(episode_states.shape[0:1]),-1)
             value_list.append(self.critic_net(episode_states))
         #print(value_list)
+
         previous = torch.zeros((1,), device=state_buffer.states.device)
         for episode in range(reward_buffer.episode_count):
             value = value_list[episode]
@@ -73,7 +74,7 @@ class PPO:
             # This approach was re-used because it moves python operations to vectorized C operations.
             for t in range(reward_buffer.episode_len - 2, -1, -1):
                 reward = (reward_buffer.rewards[episode][t]
-                            + self.gamma * value[t+1] - value[t])
+                          + self.gamma*value[t+1] - value[t])
                 previous = A[episode, t] = reward + self.lambd*self.gamma*previous
                 # Compute the log probability of the state/action pair using the previous steps' policy.
                 pi_old = policy_buffer.policies[episode][t]
@@ -97,7 +98,6 @@ class PPO:
             # Subtracted term in objective function for PPO.
             subterm = self.c * (value_list[episode]).pow(2)
             ret[episode] = torch.sum(minterm - subterm)
+        
         # Perform outer summation and divide by number of terms.
-        loss = torch.mean(ret)
-        #print(f"My loss is: {loss}")
-        return loss
+        return ret.mean()

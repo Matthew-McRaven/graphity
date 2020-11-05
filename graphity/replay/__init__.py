@@ -93,19 +93,14 @@ class ReturnAccumulator:
         assert 0.0 < gamma and gamma <= 1.0
         self.gamma = gamma
         self.lambd = lambd
-        self.discounted_rewards = torch.zeros([rewards.episode_count, rewards.episode_len, 1], dtype=torch.float32, device=rewards.rewards.device)
+        self.discounted_rewards = torch.zeros([rewards.episode_count, rewards.episode_len, 1], dtype=torch.float32,
+                                              device=rewards.rewards.device)
         previous = 0
         # By iterating backwards over the rewards, we are computing a linear filter on the output.
         # That is: O[t] = I[t] + gamma*O[t+1], where I is the input array and O is the output array.
         # This works by "splitting off" the first term of the summation at t'=t, and then reusing the already-computer sum
         # from t'=t+1..T-1.
         # This approach may accumulate larger roundoff errors when t ≪ stop_time.
-        # If you create a computation graph each t∈[0,stop_time-1], then the maximum distance between any two nodes is
-        # proportional to stop_time-t
-        # The forward computation approach, while asymptotically slower, has a constant maximum distance.
-        # Since distance correlates to number of floating point * and +, we accumulate significatly more round of errors using my approach.
-        # However, rewards in the distant future don't matter much unless they are very big, in which case rounding errors are 
-        # probably inconsequenial
         for episode in range(rewards.episode_count):
             for t in range(rewards.episode_len-1, -1, -1):
                 previous = self.discounted_rewards[episode][t] = lambd*rewards.rewards[episode][t] + gamma*previous

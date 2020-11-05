@@ -25,7 +25,7 @@ class REINFORCEAgent(nn.Module):
         # Cache the last generated policy, so that we can sample for additional actions.
         self.policy_latest = None
         self.actor_net = actor_net
-        self._actor_loss = losses.VPG()
+        self._actor_loss = losses.VPG(hypers)
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
         self.hypers = hypers
 

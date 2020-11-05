@@ -1,8 +1,6 @@
 import torch
-from torch import dropout, dtype, tensor, tril
 import torch.nn as nn
 import torch.distributions, torch.nn.init
-from torch.nn.modules.loss import MSELoss
 import torch.optim
 
 # Network that learns the expected reward from a state.

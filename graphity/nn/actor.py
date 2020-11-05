@@ -5,7 +5,6 @@ import torch.distributions, torch.nn.init
 from torch.nn.modules.loss import MSELoss
 import torch.optim
 
-from graphity.hypers import to_cuda
 import graphity.nn.policy
 
 # Agent network based on a submission to my COSC689 class

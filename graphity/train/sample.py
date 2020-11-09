@@ -1,7 +1,6 @@
 log_actions = True
 log_rewards = True
 log_state = True
-summarize_epoch = False
 
 # Given a task (which contains a replay buffer),
 # run the agent on the task until the buffers are full.
@@ -28,5 +27,3 @@ def sample_trajectories(task, agent, env, hypers):
         # if it is requested.
         if agent.allow_callback:
             agent.act_callback(state, reward)
-        if summarize_epoch:
-            assert 0

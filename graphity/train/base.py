@@ -1,3 +1,5 @@
+import torch
+
 import graphity.train
 
 # Train on a task distribution using only an actor/critics loss functions.
@@ -16,39 +18,52 @@ def basic_task_loop(hypers, env, agent, task_dist, reuse_tasks=True):
 # Implement MAML algorithm for meta-RL tasks
 def meta_task_loop(hypers, env, agent, task_dist):
     for epoch in range(hypers['epochs']):
+        # Make sure we do not persist grads between training epochs.
+        agent.zero_grad()
         task_samples = task_dist.sample(hypers['episode_count'])
 
         # Mystr keep track of our starting parmeters and our adapted parmeters.
         slow_parameters = agent.steal()
         adapted_parameters = hypers['episode_count'] * [None]
+        adapted_grads = hypers['episode_count'] * [None]
+        adaptation_steps = 2
 
         ####################
         # Task Adaptation  #
         ####################
         for idx, task in enumerate(task_samples):
             agent.stuff(slow_parameters)
-            agent.actor_optimizer.zero_grad()
-            for adapt_step in range(2):
+            # Perform an arbitrary number of adaptation steps
+            for adapt_step in range(adaptation_steps):
                 base_sampler(hypers, env, agent, [task])
-                base_update_critic(hypers, env, agent, task_samples)
-                loss = -agent.actor_loss(task)
-                loss.backward(retain_graphs=True)
-                agent.actor_optimizer.step()
+                base_update_critic(hypers, env, agent, [task])
+                base_update_actor(hypers, env, agent, [task])
+            # Sample a task for the meta-adaptation step.
+            base_sampler(hypers, env, agent, [task])
+            # Compute the loss of the adapated agent on the task.
+            (-agent.critic_loss(task)).backward()
+            (-agent.actor_loss(task)).backward()
+            # All pytorch optimizers perform updates using grads.
+            # If we copy out the grads and apply them later, pytorch won't be any wiser
+            # as to how those grads got there. Use "clone" to prevent grads from being deleted.
+            adapted_grads[idx] = [p.grad.clone() for p in agent.parameters()]
+            # Prevent out meta-grads from polluting the next task's update.
+            agent.zero_grad()
             adapted_parameters[idx] = agent.steal()
 
         ####################
         # Meta-update step #
         ####################
-        agent.actor_optimizer.zero_grad()
-        # Gather the losses for each adapted task.
-        adapted_loss = hypers['episode_count'] * [None]
-        for idx, task in enumerate(task_samples):
-            agent.stuff(adapted_parameters[idx])
-            adapted_loss[idx] = -agent.critic_loss(task)
-
-        # Update the "slow wights" of the agent.
+        # We want to apply gradient updates to our starting weights,
+        # and we want to discard any existing gradient updates
         agent.stuff(slow_parameters)
-        sum(adapted_loss).backward()
+        agent.zero_grad()
+        # Accumulate grad updates across tasks.
+        for adapted in adapted_grads:
+            for param, grad in zip(agent.parameters(), adapted):
+                param.grad.add_(grad)
+        # And apply those using our existing optimizer.
+        agent.critic_optimizer.step()
         agent.actor_optimizer.step()
 
         print(f"Finished epoch {epoch}")

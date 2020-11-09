@@ -40,6 +40,12 @@ class REINFORCEAgent(nn.Module):
     def actor_loss(self, task):
         return self._actor_loss(task.state_buffer, task.action_buffer, task.reward_buffer, task.policy_buffer)
 
+    def steal(self):
+        return self.state_dict()
+
+    def stuff(self, params):
+        self.load_state_dict(params, strict=True)
+
 # Implement a common framework for all synchronous actor-critic methods.
 # It achieves this versatility by allowing you to specify the policy loss
 # function, enabling policy gradient with baseline and PPO to use the same agent.
@@ -85,3 +91,9 @@ class ActorCriticAgent(nn.Module):
         states = task.state_buffer.states
         states = states.view(*(states.shape[0:2]),-1)
         return self._critic_loss(self.critic_net(states), task.reward_buffer.rewards)
+
+    def steal(self):
+        return self.state_dict()
+        
+    def stuff(self, params):
+        self.load_state_dict(params, strict=True)

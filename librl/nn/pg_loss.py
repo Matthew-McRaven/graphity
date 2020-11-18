@@ -2,9 +2,7 @@ import torch
 import torch.distributions, torch.nn.init
 import torch.optim
 
-import graphity.replay
-import graphity.calc
-		
+import librl.calc
 ##########################
 # Policy Gradient Losses #
 ##########################
@@ -17,7 +15,7 @@ class VPG:
     def __call__(self, task):
         losses = []
         for trajectory in task.trajectories:
-            discounted = graphity.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
+            discounted = librl.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
             losses.append(sum(trajectory.logprob_buffer[:trajectory.done] * discounted))
         # Perform outer mean.
         return sum(losses) / len(losses)
@@ -33,7 +31,7 @@ class PGB:
         for trajectory in task.trajectories:
             # Don't propogate gradients into critic when updating actor.
             with torch.no_grad(): estimated_values = self.critic_net(trajectory.state_buffer).view(-1)[:trajectory.done]
-            discounted = graphity.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
+            discounted = librl.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
             losses.append(torch.sum(trajectory.logprob_buffer[:trajectory.done] * (discounted - estimated_values)))
         # Perform outer mean.
         return sum(losses) / len(losses)
@@ -56,9 +54,9 @@ class PPO:
             with torch.no_grad(): estimated_values = self.critic_net(trajectory.state_buffer[:trajectory.done]).view(-1)
 
             # Use helper methods to vectorize dicount, GAE, and log_prob computations.
-            discounted = graphity.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
-            A =  graphity.calc.gae(trajectory.reward_buffer[:trajectory.done], estimated_values, self.gamma)
-            log_prob_old = graphity.calc.old_log_probs(trajectory.action_buffer[:trajectory.done], trajectory.policy_buffer[:trajectory.done])
+            discounted = librl.calc.discounted_returns(trajectory.reward_buffer[:trajectory.done], gamma=self.gamma)
+            A =  librl.calc.gae(trajectory.reward_buffer[:trajectory.done], estimated_values, self.gamma)
+            log_prob_old = librl.calc.old_log_probs(trajectory.action_buffer[:trajectory.done], trajectory.policy_buffer[:trajectory.done])
 
             # Compute indiviudal terms of the PPO algorithm.
             ratio = trajectory.logprob_buffer[:trajectory.done].exp() / (log_prob_old.exp() + 1e-6)

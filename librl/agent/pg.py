@@ -14,28 +14,27 @@ import torch
 import torch.nn as nn
 import torch.optim
 
-import graphity.agent
-import graphity.nn.update_rules as losses
-
+import librl.agent
+import librl.nn.pg_loss
 
 # It caches the last generated policy in self.policy_latest, which can be sampled for additional actions.
-@graphity.agent.add_agent_attr(allow_update=True, policy_based=True)
+@librl.agent.add_agent_attr(allow_update=True, policy_based=True)
 class REINFORCEAgent(nn.Module):
     def __init__(self, hypers, actor_net):
         super(REINFORCEAgent, self).__init__()
         # Cache the last generated policy, so that we can sample for additional actions.
         self.policy_latest = None
         self.actor_net = actor_net
-        self._actor_loss = losses.VPG(hypers)
+        self._actor_loss = librl.nn.pg_loss.VPG(hypers)
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
         self.hypers = hypers
 
-    def act(self, state, toggles=1):
-        return self(state, toggles)
+    def act(self, state):
+        return self(state)
 
-    def forward(self, state, toggles=1):
+    def forward(self, state):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.actor_net(state, toggles)
+        actions, logprobs, self.policy_latest = self.actor_net(state)
         return actions, logprobs
 
     def actor_loss(self, task):
@@ -53,7 +52,7 @@ class REINFORCEAgent(nn.Module):
 # You, the user, are responsible for supplying a policy network and value network
 # that make sense for the problem.
 # It caches the last generated policy in self.policy_latest, which can be sampled for additional actions.
-@graphity.agent.add_agent_attr(allow_update=True, policy_based=True)
+@librl.agent.add_agent_attr(allow_update=True, policy_based=True)
 class ActorCriticAgent(nn.Module):
     def __init__(self, hypers, critic_net, actor_net, actor_loss):
         super(ActorCriticAgent, self).__init__()
@@ -72,15 +71,15 @@ class ActorCriticAgent(nn.Module):
         # TODO: Optimize with something other than ADAM.
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
 
-    def act(self, state, toggles=1):
-        return self(state, toggles)
+    def act(self, state):
+        return self(state)
 
     def value(self, state):
         return self.critic_net(state)
 
-    def forward(self, state, toggles=1):
+    def forward(self, state):
         # Don't return policy information, so as to conform with stochastic agents API.
-        actions, logprobs, self.policy_latest = self.actor_net(state, toggles)
+        actions, logprobs, self.policy_latest = self.actor_net(state)
         return actions, logprobs
         
     def actor_loss(self, task):

@@ -1,6 +1,4 @@
 # Returns a real-numbered matrix of 
-from torch import tensor
-
 import torch
 
 import graphity.environment.toggle

@@ -2,14 +2,14 @@ import functools
 
 import torch
 
-import graphity.replay
+import librl.replay
 
 # Given a task (which contains a replay buffer),
 # run the agent on the task until the buffers are full.
 def sample_trajectories(task, agent, env, hypers):
     for i in range(task.trajectory_count):
         state = torch.tensor(env.reset()).to(hypers['device'])
-        episode = graphity.replay.Episode(env.observation_space, env.action_space, hypers['episode_length'])
+        episode = librl.replay.Episode(env.observation_space, env.action_space, hypers['episode_length'])
 
         for t in range(hypers['episode_length']):
             

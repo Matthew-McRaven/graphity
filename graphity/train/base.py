@@ -4,7 +4,7 @@ import os
 import torch
 
 import graphity.train
-import graphity.agent.pg as pg
+import librl.agent.pg as pg
 
 def episodic_trainer(hypers,  task_dist, train_fn):
     for epoch in range(hypers['epochs']):

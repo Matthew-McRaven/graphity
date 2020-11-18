@@ -2,14 +2,14 @@
 import torch
 import numpy as np
 
-import graphity.utils
+import librl.utils
 
 # Enapsulate all replay memory of a single task
 # TODO: Allow data to be moved to GPU.
 class Episode:
 	def __init__(self, obs_space, act_space, episode_length=200, allow_cuda=False):
-		self.state_buffer = torch.zeros([episode_length, *obs_space.shape], dtype=graphity.utils.convert_np_torch(obs_space.dtype))
-		self.action_buffer = torch.zeros([episode_length, *act_space.shape], dtype=graphity.utils.convert_np_torch(act_space.dtype))
+		self.state_buffer = torch.zeros([episode_length, *obs_space.shape], dtype=librl.utils.convert_np_torch(obs_space.dtype))
+		self.action_buffer = torch.zeros([episode_length, *act_space.shape], dtype=librl.utils.convert_np_torch(act_space.dtype))
 		self.logprob_buffer = torch.zeros([episode_length], dtype=torch.float32)
 		self.reward_buffer = torch.zeros([episode_length], dtype=torch.float32)
 		self.policy_buffer = np.full([episode_length], None, dtype=object)

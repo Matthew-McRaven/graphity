@@ -8,13 +8,14 @@ For specifications of individual loss functions, see graphity.nn.update_rules
 [1] Policy Gradient Methods for Reinforcement Learning with Function Approximation. Sutton et al.
 [2] Proximal Policy Optimization Algorithms, Schulman et al.
 """
+import copy
+
 import torch
 import torch.nn as nn
 import torch.optim
 
 import graphity.agent
 import graphity.nn.update_rules as losses
-import graphity.replay
 
 
 # It caches the last generated policy in self.policy_latest, which can be sampled for additional actions.
@@ -38,10 +39,10 @@ class REINFORCEAgent(nn.Module):
         return actions, logprobs
 
     def actor_loss(self, task):
-        return self._actor_loss(task.state_buffer, task.action_buffer, task.reward_buffer, task.policy_buffer)
+        return self._actor_loss(task)
 
     def steal(self):
-        return self.state_dict()
+        return copy.deepcopy(self.state_dict())
 
     def stuff(self, params):
         self.load_state_dict(params, strict=True)
@@ -61,7 +62,7 @@ class ActorCriticAgent(nn.Module):
         # Trust that the caller gave a reasonable value network.
         self.critic_net = critic_net
         # Goal of our value network (aka the critic) is to make our actual and expected values be equal.
-        self._critic_loss = torch.nn.MSELoss(reduction="sum")
+        self._critic_loss = torch.nn.MSELoss(reduction="mean")
         # TODO: Optimize with something other than ADAM.
         self.critic_optimizer = torch.optim.Adam(self.critic_net.parameters(), lr=hypers['alpha'], weight_decay=hypers['l2'])
 
@@ -83,17 +84,20 @@ class ActorCriticAgent(nn.Module):
         return actions, logprobs
         
     def actor_loss(self, task):
-        return self._actor_loss(task.state_buffer, task.action_buffer, task.reward_buffer, task.policy_buffer)
+        return self._actor_loss(task)
 
     def critic_loss(self, task):
         # Must reshape states to be a batched 1d array.
         # TODO: Will need different reshaping for CNN's.
-        states = task.state_buffer.states
-        states = states.view(*(states.shape[0:2]),-1)
-        return self._critic_loss(self.critic_net(states), task.reward_buffer.rewards)
+        losses = []
+        for trajectory in task.trajectories:
+            states = trajectory.state_buffer[:trajectory.done]
+            states = states.view(-1, *(states.shape[1:]))
+            losses.append(self._critic_loss(self.critic_net(states), trajectory.reward_buffer.view(-1, 1)[:trajectory.done]))
+        return sum(losses)
 
     def steal(self):
-        return self.state_dict()
+        return copy.deepcopy(self.state_dict())
         
     def stuff(self, params):
         self.load_state_dict(params, strict=True)

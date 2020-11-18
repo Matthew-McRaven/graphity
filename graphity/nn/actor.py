@@ -15,7 +15,7 @@ import graphity.nn.policy
 # The Categorical distribution is non-differentiable, so this may cause
 # problems for future programmers.
 class MLPActor(nn.Module):
-    def __init__(self, input_dimensions, hypers, layers=[28, 14]):
+    def __init__(self, input_dimensions, hypers):
         super(MLPActor, self).__init__()
         
         self.input_dimensions = input_dimensions
@@ -25,7 +25,7 @@ class MLPActor(nn.Module):
         # Build linear layers from input defnition.
         linear_layers = []
         previous = input_dimensions
-        for index,layer in enumerate(layers):
+        for index,layer in enumerate(hypers['actor_layers']):
             linear_layers.append(nn.Linear(previous, layer))
             linear_layers.append(nn.LeakyReLU())
             # We have an extra component at the end, so we can dropout after every layer.
@@ -56,15 +56,7 @@ class MLPActor(nn.Module):
         output = self.linear_layers(input.float())
         actions = []
 
-        # When graph dimension becomes large, outputs of linear layers can underflow and overflow.
-        # If this happens, you need to shrink the dimension of the graph (bad), reduce the learning rate,
-        # decrease the magnitude of the loss (do this by changing the reward function to log(reward function))
-        # or widening the datatypes of our networks.
-        # 2020-10-30 (MM) -- encountered overflow with sum((A^2-d)^2) at n=100. Fix by taking log(expression) as
-        # new energy function.
-        if torch.isnan(output).any():
-            print(output)
-            assert 0 and "Output overflowed from neural net. Abandon all hope ye who enter here."
+        assert not torch.isnan(output).any()
 
         # Treat the outputs of my softmaxes as the probability distribution for my NN.
         first_preseed = self.output_layers["first"  ](output)

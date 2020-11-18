@@ -10,6 +10,7 @@ def get_default_hyperparams():
     ret['graph_size'] = 10
     ret['toggles_per_step'] = 2
     # Neural net configurations
+    ret['critic_steps'] = 10
     ret['dropout'] = .1
     ret['l2'] = .1
     ret['alpha'] = .0003

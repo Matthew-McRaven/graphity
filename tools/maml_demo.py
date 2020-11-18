@@ -18,11 +18,13 @@ import graphity.task
 def main():
 	hypers = graphity.hypers.get_default_hyperparams()
 
-	hypers['epochs'] = 4
+	hypers['device'] = 'cpu'
+	hypers['actor_layers'] = [28, 14]
+	hypers['epochs'] = 100
 	hypers['episode_count'] = 4
 	hypers['episode_length'] = 100
 	hypers['graph_size'] = 6
-	hypers['toggles_per_step'] = 2
+	hypers['toggles_per_step'] = 1
 
 	# Environment definition
 	H = graphity.environment.reward.LogASquaredD(2)
@@ -47,12 +49,13 @@ def main():
 
 	dist = graphity.task.TaskDistribution()
 	# Define different sampling methods for points
-	random_sampler = graphity.task.RandomSampler(hypers['graph_size']**2)
-	checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
+	#random_sampler = graphity.task.RandomSampler(hypers['graph_size']**2)
+	#checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
 	# Create a single task definition from which we can sample.
-	dist.add_task(graphity.task.TaskDefinition(checkpoint_sampler, policy_loss, hypers))
+	dist.add_task(graphity.task.Task.Definition(graphity.task.GraphTask, loss=H, sample_fn=graphity.train.independent_sample, env=env, agent=agent))
 
-	graphity.train.meta_task_loop(hypers, env, agent, dist)
+	graphity.train.episodic_trainer(hypers, dist, graphity.train.basic_task_loop)
+	#graphity.train.meta_task_loop(hypers, env, agent, dist)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import torch.optim
 
 # Network that learns the expected reward from a state.
 class MLPCritic(nn.Module):
-    def __init__(self, input_dimensions,hypers, layers=[100, 100, 1]):
+    def __init__(self, input_dimensions, hypers, layers=[100, 100, 1]):
         super(MLPCritic, self).__init__()
         self.input_dimensions = input_dimensions
         self.output_dimensions = layers[-1]
@@ -27,5 +27,6 @@ class MLPCritic(nn.Module):
                 nn.init.kaiming_normal_(x)
 
     def forward(self, input):
+        input = input.view(-1, self.input_dimensions)
         output = self.linear_layers(input.float())
         return output

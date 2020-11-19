@@ -7,7 +7,7 @@ import librl.task
 # Otherwise, relay buffers will overwrite each other.
 # May re-use tasks acros epochs, so long as you clear_replay() first.
 # TODO: Optionally allocate replay buffers on first use.
-class GraphTask(librl.task.Task):
+class GraphTask(librl.task.ContinuousControlTask):
     def __init__(self, sampler=None, loss=None, **kwargs):
         super(GraphTask, self).__init__(**kwargs)
         assert loss is not None

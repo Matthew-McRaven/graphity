@@ -12,6 +12,7 @@ import graphity.grad
 import graphity.environment.reward, graphity.environment.sim
 import graphity.hypers, graphity.train
 import librl.task, graphity.task
+import librl.train.train_loop, librl.train.cc
 
 # Sample program that demonstrates how to create an agent & environment.
 # Then. train this agent for some number of epochs, determined by our hypers.
@@ -56,10 +57,10 @@ def main():
 	#random_sampler = graphity.task.RandomSampler(hypers['graph_size']**2)
 	#checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
 	# Create a single task definition from which we can sample.
-	dist.add_task(librl.task.Task.Definition(graphity.task.GraphTask, loss=H, sample_fn=graphity.train.independent_sample, env=env, agent=agent))
+	dist.add_task(librl.task.Task.Definition(graphity.task.GraphTask, loss=H, env=env, agent=agent))
 
 	#graphity.train.episodic_trainer(hypers, dist, graphity.train.basic_task_loop)
-	graphity.train.episodic_trainer(hypers, dist, graphity.train.meta_task_loop)
+	librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.maml_meta_step)
 
 
 if __name__ == "__main__":

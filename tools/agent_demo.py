@@ -4,11 +4,13 @@ It demonstrates all available agents.
 It also shows how to create a task distribution to sample from.
 """
 import torch
+import librl.nn.core, librl.nn.actor, librl.nn.critic, librl.nn.pg_loss
+import librl.agent.pg, librl.agent.mdp
+import librl.task.distribution, librl.task
+import librl.train.train_loop, librl.train.cc.pg
 
-import graphity.agent.markov, graphity.agent.grad, graphity.agent.pg
-import graphity.nn.actor, graphity.nn.critic, graphity.nn.update_rules
+import graphity.agent.markov, graphity.agent.grad
 import graphity.grad
-import graphity.replay
 import graphity.environment.reward, graphity.environment.sim
 import graphity.hypers, graphity.train
 import graphity.task
@@ -20,6 +22,7 @@ def main():
 
     hypers['epochs'] = 4
     hypers['episode_count'] = 4
+    hypers['task_count'] = 1
     hypers['episode_length'] = 100
     hypers['graph_size'] = 6
     hypers['toggles_per_step'] = 2
@@ -29,34 +32,36 @@ def main():
     env = graphity.environment.sim.Simulator(graph_size=hypers['graph_size'], H=H)
 
     # Stochastic agents
-    #agent = graphity.agent.markov.RandomAgent(hypers)
+    #agent = librl.agent.mdp.RandomAgent(env.observation_space, env.action_space)
     #agent = graphity.agent.markov.MDPAgent(hypers)
 
     # Gradient descent agents
     agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
     
     # Neural-network based agents
-    value_net = graphity.nn.critic.MLPCritic(hypers['graph_size']**2, hypers)
-    policy_net = graphity.nn.actor.MLPActor(hypers['graph_size']**2, hypers)
+    value_kernel = librl.nn.core.MLPKernel(hypers['graph_size']**2, [211])
+    value_net = librl.nn.critic.ValueCritic(value_kernel)
+    policy_kernel = librl.nn.core.MLPKernel(hypers['graph_size']**2, [117])
+    policy_net = librl.nn.actor.BiCategoricalActor(policy_kernel, env.action_space, env.observation_space)
     # Vanilla policy gradient
-    #agent = graphity.agent.pg.REINFORCEAgent(hypers, policy_net)
+    #agent = librl.agent.pg.REINFORCEAgent(policy_net)
     # Actor-critic policy gradient methods.
     # Change policy loss fn to change behavior of agent.
-    #policy_loss = graphity.nn.update_rules.PGB(value_net, hypers)
-    policy_loss = graphity.nn.update_rules.PPO(value_net, hypers)
-    #agent = graphity.agent.pg.ActorCriticAgent(hypers, value_net, policy_net, policy_loss)
+    #policy_loss = librl.nn.pg_loss.PGB(value_net)
+    #policy_loss = librl.nn.pg_loss.PPO(value_net)
+    #agent = librl.agent.pg.ActorCriticAgent(value_net, policy_net, policy_loss)
 
     # Show the NN configuration on the console.
     print(agent)
 
     # Define different sampling methods for points
-    random_sampler = graphity.task.RandomSampler(hypers['graph_size']**2)
-    checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
-    dist = graphity.task.TaskDistribution()
+    random_sampler = graphity.task.RandomSampler(hypers['graph_size'])
+    #checkpoint_sampler = graphity.task.CheckpointSampler(random_sampler) # Suspiciously wrong.
+    dist = librl.task.TaskDistribution()
     # Create a single task definition from which we can sample.
-    dist.add_task(graphity.task.TaskDefinition(checkpoint_sampler, policy_loss, hypers))
+    dist.add_task(librl.task.Task.Definition(graphity.task.GraphTask, sampler=random_sampler, agent=agent, env=env))
 
-    graphity.train.basic_task_loop(hypers, env, agent, dist)
+    librl.train.train_loop.cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step)
 
 
 if __name__ == "__main__":

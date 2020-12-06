@@ -5,7 +5,7 @@ from numpy.random import Generator, PCG64
 
 # Needed for add_agent_attr() decorator
 import librl.agent
-
+import librl.train.cc.pg    
 # Markov agent is willing to back out last edge, with some prbability, if that action increased the energy of the sytstem.
 # This "regret" factor is beta, the inverse of the temperature.
 @librl.agent.add_agent_attr(allow_callback=True)
@@ -29,7 +29,7 @@ class MDPAgent(nn.Module):
         return self.forward(adj, toggles)
 
     # Callback, which will allow us to "undo" our last action if it is worse.
-    def act_callback(self, _, reward):
+    def act_callback(self, reward=None, **_):
         self.arm2 = self.arm1
         # Join internally cached action and environment-supplied reward
         self.arm1 = (self.am1, reward)
@@ -89,6 +89,11 @@ class MDPAgent(nn.Module):
         # Must cache last action here, because it isn't available in act_callback(...)
         self.am1 = action
         return action, log_prob
-            
+
+# Implement training procedure for grad descent only.
+# Skip MAML, because this agent doesn't learning anything. 
+@librl.train.cc.pg.policy_gradient_update.register(MDPAgent)
+def _(agent, tasks_iterable):
+    pass
 
 

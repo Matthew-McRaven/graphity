@@ -8,6 +8,7 @@ class RandomSampler:
 
     def sample(self):
         self.state = graphity.graph.generate.random_adj_matrix(self.graph_size)
+        return self.state
     
     def checkpoint(self, *args):
         pass

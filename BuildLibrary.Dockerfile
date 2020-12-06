@@ -4,12 +4,7 @@ COPY ./requirements.txt /graphity/install/requirements.txt
 RUN pip install -r /graphity/install/requirements.txt
 
 # Copy over source files, build python package.
-FROM base as build
+FROM base as output
 COPY . /graphity/source
 WORKDIR /graphity/source
-RUN pip wheel . -w /graphity/install
-
-# Output image only contains the built wheel and installed requirements.
-FROM build as output
-COPY --from=base /graphity/install/ /graphity/install
-RUN pip install $(find /graphity/install -type f -iname "*.whl")
+RUN pip install -e .

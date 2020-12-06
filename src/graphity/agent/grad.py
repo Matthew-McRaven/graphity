@@ -3,6 +3,7 @@ import torch.nn as nn
 
 # Needed for add_agent_attr() decorator
 import librl.agent
+import librl.train.cc.pg
 # Needed to compute grads
 import graphity.grad
 
@@ -38,3 +39,9 @@ class GradientFollowingAgent(nn.Module):
         actions = torch.stack([first,second], dim=-1)
 
         return actions, torch.zeros((1,))
+
+# Implement training procedure for grad descent only.
+# Skip MAML, because this agent doesn't learning anything. 
+@librl.train.cc.pg.policy_gradient_update.register(GradientFollowingAgent)
+def _(agent, tasks_iterable):
+    pass

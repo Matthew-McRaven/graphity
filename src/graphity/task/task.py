@@ -8,12 +8,10 @@ import librl.task
 # May re-use tasks acros epochs, so long as you clear_replay() first.
 # TODO: Optionally allocate replay buffers on first use.
 class GraphTask(librl.task.ContinuousControlTask):
-    def __init__(self, sampler=None, loss=None, **kwargs):
+    def __init__(self, sampler=None, **kwargs):
         super(GraphTask, self).__init__(**kwargs)
-        assert loss is not None
 
         self.sampler = sampler
-        self.loss = loss
 
     def init_env(self):
         self.env.sampler = self.sampler

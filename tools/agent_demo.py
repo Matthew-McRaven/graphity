@@ -33,10 +33,10 @@ def main():
 
     # Stochastic agents
     #agent = librl.agent.mdp.RandomAgent(env.observation_space, env.action_space)
-    #agent = graphity.agent.markov.MDPAgent(hypers)
+    #agent = graphity.agent.markov.MDPAgent()
 
     # Gradient descent agents
-    agent = graphity.agent.grad.GradientFollowingAgent(H, hypers)
+    agent = graphity.agent.grad.GradientFollowingAgent(H)
     
     # Neural-network based agents
     value_kernel = librl.nn.core.MLPKernel(hypers['graph_size']**2, [211])

@@ -10,7 +10,7 @@ import graphity.grad
 # The random agent random selects one edge pair to toggle per timestep.
 @librl.agent.add_agent_attr()
 class GradientFollowingAgent(nn.Module):
-    def __init__(self, H, hypers):
+    def __init__(self, H):
         # Must initialize torch.nn.Module
         super(GradientFollowingAgent, self).__init__()
         self.H = H

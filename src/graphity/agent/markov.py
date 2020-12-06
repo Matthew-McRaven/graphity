@@ -10,7 +10,7 @@ import librl.train.cc.pg
 # This "regret" factor is beta, the inverse of the temperature.
 @librl.agent.add_agent_attr(allow_callback=True)
 class MDPAgent(nn.Module):
-    def __init__(self,  hypers, beta=2):
+    def __init__(self, beta=2):
         # Must initialize torch.nn.Module
         super(MDPAgent, self).__init__()
         # I like the PCG RNG, and since we aren't trying to "learn"

@@ -34,3 +34,11 @@ Build Dependencies:
   script:
     - docker build -f ./BuildLibrary.Dockerfile -t ${REMOTE_IMAGE_NAME}:${CI_VERSION} .
     - docker push ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+
+Run Tests:
+  stage: Test
+  needs: [Build Dependencies]
+  script:
+    - docker pull ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION}  /bin/sh -c "pytest -rPx"
+    

@@ -42,15 +42,20 @@ class Simulator(gym.Env):
                 self.state = graphity.graph.generate.random_adj_matrix(self.graph_size)
         # TODO: self.state = graphity.hypers.to_cuda(self.state, self.allow_cuda)
         # Simulation-internal state should not provide gradient feedback to system.
-        self.state.requires_grad_(False)
+        self.state = self.state.requires_grad_(False)
+        assert self.sampler
         return self.state
 
+    def reset_sampler(self):
+        self.sampler.reset()
+        
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
     def step(self, action):
         action = action.reshape(-1, 2)
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.clone()
+        next_state = next_state.requires_grad_(False)
         # For each index in the action list, apply the toggles.
         for (i,j) in action:
             graphity.environment.toggle.toggle_edge(int(i), int(j), next_state, self.allow_self_loop)

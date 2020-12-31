@@ -3,8 +3,9 @@ import numpy as np
 
 # Implement the hamiltonian discussed with Betre on 20201015
 class ASquaredD:
-    def __init__(self, d):
+    def __init__(self, d, keep_diag=False):
         self.d = d
+        self.keep_diag = keep_diag
     
     # Allow the class to be called like a function.
     def __call__(self, adj):
@@ -19,11 +20,14 @@ class ASquaredD:
         # For each matrix in the batch, compute the adjacency matrix^2.
         temp = torch.matmul(adj, adj)
         temp = torch.sub(temp, self.d)
-        # Construct a matrix only containing diagonal
-        diag = temp.diagonal(dim1=-2,dim2=-1)
-        temp_diag = (diag)
-        # Subtract out diagonal, so diagonal is 0.
-        temp -= temp_diag
+
+        # Only mask out diagonal if required.
+        if not self.keep_diag:
+            # Construct a matrix only containing diagonal
+            diag = temp.diagonal(dim1=-2,dim2=-1)
+            temp_diag = (diag)
+            # Subtract out diagonal, so diagonal is 0.
+            temp -= temp_diag
         
         # Sum over the last two dimensions, leaving us with a 1-d array of values.
         return torch.sum(temp.pow(2), (1,2))
@@ -31,8 +35,8 @@ class ASquaredD:
 # ASquaredD has explodes in high dimensions.
 # Taking the log of this number reduces growth to be more like N**2 rather than a**n**2.
 class LogASquaredD(ASquaredD):
-    def __init__(self, d):
-        super(LogASquaredD, self).__init__(d)
+    def __init__(self, d, **kwargs):
+        super(LogASquaredD, self).__init__(d, **kwargs)
     def __call__(self, adj):
         return np.log(super(LogASquaredD, self).__call__(adj))
 
@@ -40,8 +44,8 @@ class LogASquaredD(ASquaredD):
 # However, this will torpedo the ablity to dilineate between states of
 # of similiar (but not identical) energy levels.
 class NestedLogASquaredD(ASquaredD):
-    def __init__(self, d, nesting):
-        super(NestedLogASquaredD, self).__init__(d)
+    def __init__(self, d, nesting, **kwargs):
+        super(NestedLogASquaredD, self).__init__(d, **kwargs)
         self.nesting = nesting
 
     def __call__(self, adj):

@@ -100,11 +100,11 @@ def build_env(hypers):
     sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'])
     env = graphity.environment.sim.Simulator(hypers['H'], hypers['n'], sampler=sampler)
     flatten = graphity.FlattenInput(env.observation_space.shape)
-    policy_kernel = librl.nn.core.RecurrentKernel(flatten.output_dimension, 512, 3)
+    policy_kernel = librl.nn.core.RecurrentKernel(flatten.output_dimension, 512, 10)
     policy_linked = librl.nn.core.SequentialKernel([flatten, policy_kernel])
     policy_net = librl.nn.actor.BiCategoricalActor(policy_linked, env.action_space, env.observation_space)
     x = flatten.output_dimension
-    critic_kernel = librl.nn.core.RecurrentKernel(flatten.output_dimension, 512, 3)
+    critic_kernel = librl.nn.core.RecurrentKernel(flatten.output_dimension, 512, 10)
     critic_net= librl.nn.critic.ValueCritic(critic_kernel)
     return env, critic_net, policy_net 
 
@@ -140,7 +140,7 @@ def main(args):
     print(agent)
 
     dist = librl.task.TaskDistribution()
-    dist.add_task(librl.task.Task.Definition(graphity.task.task.GraphTask, env=env, agent=agent, replay_ctor=librl.replay.episodic.MemoizedEpisode, sampler=env.sampler))
+    dist.add_task(librl.task.Task.Definition(graphity.task.task.GraphTask, env=env, agent=agent, sampler=env.sampler))
     cc_episodic_trainer(hypers, dist, librl.train.cc.policy_gradient_step, log_fn=DirLogger(args.H, args.log_dir))
 
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     hamiltonian_group.set_defaults(H=graphity.environment.reward.LogASquaredD(2))
     
     # Task distribution hyperparams.
-    parser.add_argument("-n", default=10, type=int, help="Number of nodes in graph.")
+    parser.add_argument("-n", default=6, type=int, help="Number of nodes in graph.")
     parser.add_argument("--epochs", default=1000, type=int, help="Number of epochs for which to train / evaluate agents.")
     parser.add_argument("--task-count", dest="task_count", default=5, type=int, help="Numbers of episodes (trial runs) in each epoch. Within each epoch, each task is presented with the same seed graph")
     parser.add_argument("--timesteps", dest="episode_length", default=100, type=int, help="Number of evolution steps for each task.")

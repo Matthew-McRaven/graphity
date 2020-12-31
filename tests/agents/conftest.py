@@ -2,7 +2,7 @@ import librl.agent.mdp, librl.agent.pg
 import librl.nn.core, librl.nn.actor, librl.nn.critic, librl.nn.pg_loss
 import pytest
 
-import graphity.agent.markov, graphity.agent.grad
+import graphity.agent.mdp, graphity.agent.grad
 
 @pytest.fixture()
 def RandomAgent(GraphSimulator):
@@ -14,7 +14,7 @@ def GradFollowingAgent(GraphSimulator):
 
 @pytest.fixture()
 def GradFollowingAgent(GraphSimulator):
-    return graphity.agent.markov.MDPAgent()
+    return graphity.agent.mdp.MetropolisMarkovAgent()
 
 @pytest.fixture()
 def REINFORCEAgent(GraphSimulator):

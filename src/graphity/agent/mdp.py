@@ -9,10 +9,10 @@ import librl.train.cc.pg
 # Markov agent is willing to back out last edge, with some prbability, if that action increased the energy of the sytstem.
 # This "regret" factor is beta, the inverse of the temperature.
 @librl.agent.add_agent_attr(allow_callback=True)
-class MDPAgent(nn.Module):
+class MetropolisMarkovAgent(nn.Module):
     def __init__(self, beta=2):
         # Must initialize torch.nn.Module
-        super(MDPAgent, self).__init__()
+        super(MetropolisMarkovAgent, self).__init__()
         # I like the PCG RNG, and since we aren't trying to "learn"
         # anything for this agent, numpy's RNGs are fine
         self.rng = Generator(PCG64())
@@ -92,7 +92,7 @@ class MDPAgent(nn.Module):
 
 # Implement training procedure for grad descent only.
 # Skip MAML, because this agent doesn't learning anything. 
-@librl.train.cc.pg.policy_gradient_update.register(MDPAgent)
+@librl.train.cc.pg.policy_gradient_update.register(MetropolisMarkovAgent)
 def _(agent, tasks_iterable):
     pass
 

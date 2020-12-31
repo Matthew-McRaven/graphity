@@ -7,7 +7,7 @@ import torch
 
 import librl.agent.pg
 import librl.nn.core, librl.nn.critic, librl.nn.actor
-import graphity.agent.markov, graphity.agent.grad
+import graphity.agent.mdp, graphity.agent.grad
 import graphity.grad
 import graphity.environment.reward, graphity.environment.sim
 import graphity.hypers, graphity.train

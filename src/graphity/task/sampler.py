@@ -33,6 +33,21 @@ class FixedSampler:
         pass
     def clear_chekpoint(self):
         pass
+class CachedSampler:
+    def __init__(self, graph_size=None):
+        assert graph_size
+        self.sampler = RandomSampler(graph_size)
+        self._start_state = None
+
+    def sample(self):
+        if self._start_state == None: self._start_state = self.sampler.sample()
+        return self._start_state.clone()
+    def reset(self):
+        self._start_state = None
+    def checkpoint(self, *args):
+        pass
+    def clear_chekpoint(self):
+        pass
 # Remembers the best (state, energy) pair passed to checkpoint() unitl the checkpoint is cleared.
 # If checkpoint is present, returns the cached value when sampled.
 # If there is no checkpoint, will sample from the fallback_sampler passed in init.

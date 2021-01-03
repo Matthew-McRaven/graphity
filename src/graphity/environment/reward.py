@@ -18,19 +18,23 @@ class ASquaredD:
             assert False and "Batched input can have at most 3 dimensions" 
 
         # For each matrix in the batch, compute the adjacency matrix^2.
-        temp = torch.matmul(adj, adj)
-        temp = torch.sub(temp, self.d)
-
+        temp = torch.matmul(adj, adj) - self.d
+        # Perform element-wise square.
+        temp = temp.pow(2)
         # Only mask out diagonal if required.
         if not self.keep_diag:
             # Construct a matrix only containing diagonal
-            diag = temp.diagonal(dim1=-2,dim2=-1)
-            temp_diag = (diag)
+            n = temp.shape[1]
+            diag = (temp.diagonal(dim1=-2,dim2=-1).view(-1) * torch.eye(n, n).view(temp.shape[1:])).long()
+            #print(adj, "\n", temp)
             # Subtract out diagonal, so diagonal is 0.
-            temp -= temp_diag
-        
+            temp -= diag
+            #print(temp)
+            
+
         # Sum over the last two dimensions, leaving us with a 1-d array of values.
-        return torch.sum(temp.pow(2), (1,2))
+        # Sum over all non-diagonals.
+        return torch.sum(temp, (1,2)) / 2
 
 # ASquaredD has explodes in high dimensions.
 # Taking the log of this number reduces growth to be more like N**2 rather than a**n**2.

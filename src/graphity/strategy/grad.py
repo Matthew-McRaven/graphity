@@ -10,6 +10,7 @@ import graphity.grad
 # Compute the true gradient, rather than using an approximation.
 class TrueGrad:
     def __init__(self, H):
+        assert H
         self.H = H
     def __call__(self, adj):
         return graphity.grad.graph_gradient(adj, self.H).tril()
@@ -28,7 +29,8 @@ def mask_grads(grad):
     return -(grad + upper_mask)
 
 class gd_sampling_strategy:
-    def __init__(self, grad_fn):
+    def __init__(self, grad_fn=None):
+        assert grad_fn
         self.grad_fn = grad_fn
 
     def __call__(self, adj):
@@ -44,10 +46,11 @@ class gd_sampling_strategy:
 
         # Must stack along dim=-1 in order to properly join pairs.
         actions = torch.stack([col,row], dim=-1).to(adj.device)
-        return actions, torch.tensor(0., device=adj.device)
+        return actions, torch.zeros((1,), device=adj.device)
 
 class softmax_sampling_strategy:
-    def __init__(self, grad_fn): 
+    def __init__(self, grad_fn=None): 
+        assert grad_fn
         self.grad_fn = grad_fn
 
     def __call__(self, adj):
@@ -68,7 +71,8 @@ class softmax_sampling_strategy:
 
 
 class beta_sampling_strategy:
-    def __init__(self, grad_fn, alpha=.5, beta=2):
+    def __init__(self, grad_fn=None, alpha=.5, beta=2):
+        assert grad_fn
         self.grad_fn = grad_fn
         # Grads now in [0,1], so use beta dist to biasedly pick "best" transition.
         self.dist = torch.distributions.beta.Beta(alpha, beta)

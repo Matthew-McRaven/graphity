@@ -4,7 +4,7 @@ import numpy as np
 from numpy.random import Generator, PCG64
 
 class random_sampling_strategy:
-    def __init__(self, toggles=1):
+    def __init__(self, toggles=1, **kwargs):
         self.rng = Generator(PCG64())
         self.toggles = toggles
     def __call__(self, adj):

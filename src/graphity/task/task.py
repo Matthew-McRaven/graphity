@@ -8,16 +8,31 @@ import librl.task
 # May re-use tasks acros epochs, so long as you clear_replay() first.
 # TODO: Optionally allocate replay buffers on first use.
 class GraphTask(librl.task.ContinuousControlTask):
-    def __init__(self, sampler=None, **kwargs):
+    def __init__(self, sampler=None, number=None, name=None, **kwargs):
         super(GraphTask, self).__init__(**kwargs)
-
+        assert name is not None
         self.sampler = sampler
+        self.name = name
+        self.number = number
 
     def init_env(self):
         self.env.sampler = self.sampler
 
 
+import numpy as np
+from numpy.random import Generator, PCG64
 
+# Task distribution from which every task is sample each epoch.
+class TaskDistribution:
+    def __init__(self):
+        self._tasks = []
+
+    def add_task(self, task):
+        self._tasks.append(task)
+
+    def gather(self):
+        return [definition.instance() for definition in self._tasks]
+      
 # Find the minimum energy state and return the (state, energy, index) tuple.
 def min(graphtask):
     assert 0 and "This doesn't work."

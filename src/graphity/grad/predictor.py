@@ -44,11 +44,10 @@ class ValuePredictor(nn.Module):
 
 # Predict the gradient of a given graph.
 class GradPredictor(nn.Module):
-    def __init__(self, graph_size, layer_list):
+    def __init__(self, graph_size, layer_list, alpha=.001, l2=0.2, dropout=.2):
         super(GradPredictor, self).__init__()
         self.graph_size = graph_size
         self.linear_unit = None
-        dropout = 0.1
         self.input_dimensions = (graph_size, graph_size)
         self._input_size = graph_size**2
 
@@ -65,7 +64,7 @@ class GradPredictor(nn.Module):
         self.output_dimension = (graph_size, graph_size)
         self.linear_layers = nn.Sequential(*linear_layers)
 
-        self.optim = torch.optim.Adam(self.parameters(), lr=0.001, weight_decay=0.2)
+        self.optim = torch.optim.Adam(self.parameters(), lr=alpha, weight_decay=l2)
 
         # Initialize NN
         for x in self.parameters():
@@ -75,23 +74,19 @@ class GradPredictor(nn.Module):
     def forward(self, graph):
         graph = graph.float()
         return self.linear_layers(graph.view(-1, self.graph_size**2)).view(-1, *self.output_dimension)
-# Transformations to make numbers "nice" for neural nets
-def forward_remap(x):
-    return torch.exp(x)
-def backward_remap(x):
-    return torch.log(x)
 
 # Generate (input, output) pairs for a valuation task.
 def value_generate_batch(H, graph_size, count=100):
     sampler = graphity.task.graphity.task.sampler.RandomSampler(graph_size)
     samples = [sampler.sample() for _ in range(count)]
-    energies = [backward_remap(H(sample)) for sample in samples]
+    energies = [H(sample) for sample in samples]
     return torch.stack(samples), torch.stack(energies).float()
 
 
 def value_eval_batch(nn, samples, energies, criterion):
     output = nn.forward(samples)
     return criterion(output, energies)
+
 # Generate (input, output) pairs for a gradient task
 def grad_generate_batch(H, graph_size, count=100):
     sampler = graphity.task.graphity.task.sampler.RandomSampler(graph_size)
@@ -122,10 +117,10 @@ def value_train_loop(hypers, nn, criterion=torch.nn.MSELoss(reduction='sum')):
             test_losses.append(loss.item())
         print(f"Train loss is {sum(train_losses) / len(train_losses):.4E}.\nTest loss is {sum(test_losses)/len(test_losses):.4E}.\n")
         graph, energy = value_generate_batch(hypers['H'], hypers['n'], 1)
-        print(graph, forward_remap(energy), forward_remap(nn(graph)))
+        print(graph, energy, nn(graph))
 
 # Train a network to be good at taking gradient.
-def grad_train_loop(hypers, nn, criterion=torch.nn.MSELoss(reduction='sum')):
+def grad_train_loop(hypers, nn, criterion=torch.nn.MSELoss(reduction='mean')):
     for epoch in range(hypers['epochs']):
         nn.train()
         train_losses, test_losses = [], []

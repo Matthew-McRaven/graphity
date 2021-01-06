@@ -16,6 +16,7 @@ import librl.nn.core, librl.nn.actor, librl.nn.critic, librl.nn.pg_loss
 import librl.reward, librl.replay.episodic
 import librl.task, librl.task.cc
 import librl.train.train_loop, librl.train.cc
+from torch.distributions import categorical
 
 import graphity.agent.core, graphity.strategy.grad, graphity.strategy.base
 import graphity.environment.sim, graphity.environment.reward
@@ -122,8 +123,10 @@ def build_actor_critic(hypers, env):
 #     Entry point     #
 #######################
 def run_shared(hypers={}):
+    if not hypers['seed']:
+        hypers['seed'] = np.random.randint(0, 2**32, (1,))
     dist = graphity.task.task.TaskDistribution()
-    sampler = sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'])
+    sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'], seed=hypers['seed'])
     hypers['env'] = graphity.environment.sim.Simulator(hypers['H'], 
         hypers['n'], sampler=sampler
     )
@@ -159,6 +162,7 @@ def run_entry_point(args):
     hypers['trajectories'] = args.trajectories
     hypers['episode_length'] = args.episode_length
     hypers['alg'] = args.alg
+    hypers['seed'] = args.seed
     run_shared(hypers)
 
 def rerun_entry_point(args):
@@ -352,6 +356,7 @@ if __name__ == "__main__":
     run_parser.add_argument("--trajectories", dest="trajectories", default=1, type=int, help="Numbers of episodes (trial runs) in each epoch. Within each epoch, each task is presented with the same seed graph")
     run_parser.add_argument("--timesteps", dest="episode_length", default=100, type=int, help="Number of evolution steps for each task.")
     run_parser.add_argument("--device", dest="device", help="Which device to run torch on. Pick (cuda) or (cpu).", default="cpu")
+    run_parser.add_argument("--seed", dest="seed", type=int, help="String to use as np, torch seeds.")
     create_alg_options(run_parser)
     create_H_options(run_parser)
     

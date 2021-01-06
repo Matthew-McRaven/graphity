@@ -1,13 +1,19 @@
+import numpy.random
+
 import graphity.graph.generate, graphity.graph.utils
 
 # Randomly generates adjacency matricies when sampled.
 # Doesn't care about checkpointing
 class RandomSampler:
-    def __init__(self, graph_size):
+    def __init__(self, graph_size=None, seed=None):
         self.graph_size = graph_size
-
+        if seed != None:
+            self.bit_gen = numpy.random.PCG64(seed)
+            self.rng = numpy.random.Generator(self.bit_gen)
+        else:
+            self.rng = None
     def sample(self):
-        self.state = graphity.graph.generate.random_adj_matrix(self.graph_size)
+        self.state = graphity.graph.generate.random_adj_matrix(self.graph_size, rng=self.rng)
         return self.state
     
     def checkpoint(self, *args):
@@ -34,9 +40,9 @@ class FixedSampler:
     def clear_chekpoint(self):
         pass
 class CachedSampler:
-    def __init__(self, graph_size=None):
+    def __init__(self, graph_size=None, seed=None):
         assert graph_size
-        self.sampler = RandomSampler(graph_size)
+        self.sampler = RandomSampler(graph_size, seed)
         self._start_state = None
 
     def sample(self):

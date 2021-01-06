@@ -334,8 +334,11 @@ def create_alg_options(parser, set_default=True):
 def create_H_options(parser, set_default=True):
     # Hamiltonian choices
     hamiltonian_group = parser.add_mutually_exclusive_group()
+    # TODO: Add helper functions that instantiate reward fn's, don't create them here.
     hamiltonian_group.add_argument("--masked-a2d", action='store_const', const=graphity.environment.reward.LogASquaredD(2), dest='H', help="Mask out diagonal (default) when computing H.")
     hamiltonian_group.add_argument("--unmasked-a2d", action='store_const', const=graphity.environment.reward.LogASquaredD(2, keep_diag=True), dest='H', help="Keep diagonal when computing H.")
+    hamiltonian_group.add_argument("--ising", action='store_const', const=graphity.environment.reward.IsingHamiltonian(), dest='H', help="Keep diagonal when computing H.")
+    hamiltonian_group.add_argument("--spin-glass", action='store_const', const=graphity.environment.reward.SpinGlassHamiltonian(categorical=True), dest='H', help="Keep diagonal when computing H.")
     if set_default: hamiltonian_group.set_defaults(H=graphity.environment.reward.LogASquaredD(2))
     
 

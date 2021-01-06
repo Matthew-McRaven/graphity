@@ -1,6 +1,6 @@
 import librl.train.train_loop, librl.train.cc.pg
 
-from . import *
+from .. import *
 # Test that REINFORCE, AC agents can run on graph without crashing.
 
 def test_reinforce_agent(GraphSimulator, REINFORCEAgent, Hypers):

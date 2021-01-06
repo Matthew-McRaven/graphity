@@ -46,7 +46,7 @@ class DirLogger:
             rewards = [trajectory.reward_buffer[idx]for idx in range(min(trajectory.done, len(trajectory.reward_buffer)))]
             rewards = torch.stack(rewards)
             mindex = torch.argmin(rewards)
-            energy_list.append(np.exp(trajectory.reward_buffer[mindex].item()))
+            energy_list.append(trajectory.reward_buffer[mindex].item())
 
         if self.log_file:
             for trajectory_idx, trajectory in enumerate(task.trajectories):
@@ -55,4 +55,5 @@ class DirLogger:
 
         rewards = len(task.trajectories) * [None]
         for idx, traj in enumerate(task.trajectories): rewards[idx] = sum(traj.reward_buffer)
-        print(f"R^bar_({epochs:04d})_{task.name} = {(sum(rewards)/len(rewards)).item():07f}. Best was {round(min(energy_list))}.")
+        # TODO: Figure out how to remap rewards in a sane fashion.
+        print(f"R^bar_({epochs:04d})_{task.name} = {(sum(rewards)/len(rewards)).item():07f}. Best was {min(energy_list):03f}.")

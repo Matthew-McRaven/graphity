@@ -4,7 +4,6 @@ import librl.nn.core, librl.nn.actor, librl.nn.critic, librl.nn.pg_loss
 import pytest
 
 import graphity
-from graphity import strategy
 import graphity.agent.core
 import graphity.strategy.base, graphity.strategy.grad
 @pytest.fixture()

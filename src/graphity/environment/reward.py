@@ -92,6 +92,10 @@ class AbstractSpinGlassHamiltonian():
 class IsingHamiltonian(AbstractSpinGlassHamiltonian):
     @staticmethod
     def _J(size, i, j, l, m):
+        # We have a toroidal surface (wraps at edges).
+        # Distance formulas are extracted from:
+        #   https://blog.demofox.org/2017/10/01/calculating-the-distance-between-points-in-wrap-around-toroidal-space/
+        #   https://stackoverflow.com/a/3041398
         x_dist = abs(i-l)
         if x_dist > size[0]/2: x_dist = size[0] - x_dist
         y_dist = abs(j-m)

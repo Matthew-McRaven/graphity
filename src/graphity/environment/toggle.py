@@ -1,5 +1,5 @@
 
-def toggle_edge(i,j, next_state, allow_self_loop=False):
+def toggle_edge(i,j, next_state, allow_self_loop=False, enforce_symmetry=True):
     # If our action falls on the diagonal, only allow change if we allow self loops.
     if i == j:
         if allow_self_loop:
@@ -7,4 +7,4 @@ def toggle_edge(i,j, next_state, allow_self_loop=False):
     # Otherwise, toggle undirected edge between both nodes.
     else:
         next_state[i][j] = next_state[i][j] ^ 1
-        next_state[j][i] = next_state[i][j]
+        if enforce_symmetry: next_state[j][i] = next_state[i][j]

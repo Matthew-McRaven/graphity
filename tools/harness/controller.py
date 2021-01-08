@@ -209,13 +209,15 @@ def compute_stats(hypers, results, models):
             experiments[idx][epoch]['std'] = epoch_std
 
         overall_rewards = torch.cat(overall_rewards).view(-1)
-        overall_min = torch.min(overall_rewards)
+        overall_min= torch.min(overall_rewards)
+        overall_median = torch.median(overall_rewards)
         overall_max = torch.max(overall_rewards)
         overall_avg = overall_rewards.sum().item() / len(overall_rewards)
         overall_std = torch.std(overall_rewards).item()
 
         # Log relevant statisics on a per-model basis.
         experiments[idx]["overall"]['min'] = int(overall_min)
+        experiments[idx]["overall"]['median_of_mins'] = int(overall_median)
         experiments[idx]["overall"]['%min'] = (overall_rewards == overall_min).sum().item() / len(overall_rewards)
         experiments[idx]["overall"]['max'] = int(overall_max)
         experiments[idx]["overall"]['avg'] = overall_avg
@@ -231,7 +233,7 @@ def graph_entry_point(args):
         with results.open("models.pkl") as file: models = pickle.load(file)
         stats = compute_stats(hypers, results, models)
         for _, values in stats.items():
-            local_column = [values[epoch]['min'] for epoch in range(hypers['epochs'])]
+            local_column = [values[epoch]['median_of_mins'] for epoch in range(hypers['epochs'])]
             columns.append(local_column)
         
     model_strs = ["_".join(alg.split("_")[:-1]) for _, alg in models.items()]

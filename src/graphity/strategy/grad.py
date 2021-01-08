@@ -29,17 +29,18 @@ def mask_grads(grad):
     return -(grad + upper_mask)
 
 class gd_sampling_strategy:
-    def __init__(self, grad_fn=None):
+    def __init__(self, grad_fn=None, mask_triu=True):
         assert grad_fn
         self.grad_fn = grad_fn
+        self.mask_triu = mask_triu
 
     def __call__(self, adj):
         size = adj.shape[-1]
         grad = self.grad_fn(adj)
-        masked_grad = mask_grads(grad)
+        masked_grad = mask_grads(grad) if self.mask_triu else grad
 
         # Pick top transition than most minimizes energy.
-        _, index = torch.topk(masked_grad.view(-1), 1, largest=True)
+        _, index = torch.topk(masked_grad.view(-1), 1, largest=False)
 
         # Convert 1d index to 2d index (i.e., column & row)
         col, row = index // (size),  index % size
@@ -49,14 +50,16 @@ class gd_sampling_strategy:
         return actions, torch.zeros((1,), device=adj.device)
 
 class softmax_sampling_strategy:
-    def __init__(self, grad_fn=None): 
+    def __init__(self, grad_fn=None, mask_triu=True): 
         assert grad_fn
         self.grad_fn = grad_fn
+        self.mask_triu = mask_triu
 
     def __call__(self, adj):
         size = adj.shape[-1]
         grad = self.grad_fn(adj)
-        masked_grad = mask_grads(grad)
+        masked_grad = mask_grads(grad) if self.mask_triu else grad
+
         probs = torch.softmax(masked_grad.view(-1), 0).view(-1)
         index, col, row = None,None, None
         dist = torch.distributions.categorical.Categorical(probs)
@@ -71,11 +74,12 @@ class softmax_sampling_strategy:
 
 
 class beta_sampling_strategy:
-    def __init__(self, grad_fn=None, alpha=.5, beta=2):
+    def __init__(self, grad_fn=None, alpha=.5, beta=2, mask_triu=True):
         assert grad_fn
         self.grad_fn = grad_fn
         # Grads now in [0,1], so use beta dist to biasedly pick "best" transition.
         self.dist = torch.distributions.beta.Beta(alpha, beta)
+        self.mask_triu = mask_triu
 
     def __call__(self, adj):
         size = adj.shape[-1]
@@ -83,7 +87,8 @@ class beta_sampling_strategy:
         min, max = torch.min(grad.view(-1)), torch.max(grad.view(-1))
         grad = (grad - min)*(-1)/ (max - min)
         #TODO: Range compression.
-        masked_grad = mask_grads(grad)
+        masked_grad = mask_grads(grad) if self.mask_triu else grad
+
         value = self.dist.sample((1,))
         index = torch.argmin((masked_grad-value).abs())
         # Convert 1d index to 2d index (i.e., column & row)

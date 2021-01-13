@@ -1,21 +1,38 @@
+import enum
+from more_itertools.more import sample
+
 import numpy.random
+import torch
 
 import graphity.graph.generate, graphity.graph.utils
 
+class SampleType(enum.Enum):
+    Adjacency = enum.auto()
+    Random = enum.auto()
 # Randomly generates adjacency matricies when sampled.
 # Doesn't care about checkpointing
 class RandomSampler:
-    def __init__(self, graph_size=None, seed=None):
+    def __init__(self, graph_size=None, seed=None, type=SampleType.Adjacency):
         self.graph_size = graph_size
+        self._sample_type = type
         if seed != None:
             self.bit_gen = numpy.random.PCG64(seed)
             self.rng = numpy.random.Generator(self.bit_gen)
         else:
             self.rng = None
     def sample(self):
-        self.state = graphity.graph.generate.random_adj_matrix(self.graph_size, rng=self.rng)
+        if self.sample_type == SampleType.Adjacency:
+            self.state = graphity.graph.generate.random_adj_matrix(self.graph_size, rng=self.rng)
+        elif self.sample_type == SampleType.Random:
+            self.state = graphity.graph.generate.random_graph(self.graph_size, rng=self.rng)
         return self.state
-    
+    @property
+    def sample_type(self):
+        return self._sample_type
+    @sample_type.setter
+    def sample_type(self, type):
+        self._sample_type = type
+
     def checkpoint(self, *args):
         pass
     def clear_chekpoint(self):
@@ -24,15 +41,28 @@ class RandomSampler:
 # Always returns the same adjacency matrix after being sampled once.
 # Doesn't care about checkpointing
 class FixedSampler:
-    def __init__(self, start_state=None, graph_size=None):
+    def __init__(self, start_state=None, graph_size=None, sample_type = SampleType.Adjacency):
         assert not (graph_size != None and start_state != None)
         if start_state != None:
-            assert graphity.graph.utils.is_adj_matrix(start_state)
+            if sample_type == SampleType.Adjacency:
+                assert graphity.graph.utils.is_adj_matrix(start_state)
             self._start_state = start_state
         elif graph_size != None:
-            self._start_state = graphity.graph.generate.random_adj_matrix(graph_size)
-
+            self.graph_size = graph_size
+    @property
+    def sample_type(self):
+        return self._sample_type
+    @sample_type.setter
+    def sample_type(self, type):
+        self._sample_type = type
+        
     def sample(self):
+        if not self._start_state: 
+            if self._sample_type == SampleType.Adjacency: 
+                self._start_state = graphity.graph.generate.random_adj_matrix(self.graph_size)
+            elif self._sample_type == SampleType.Random:
+                self._start_state = graphity.graph.generate.random_graph(self.graph_size)
+
         return self._start_state.clone()
 
     def checkpoint(self, *args):
@@ -40,13 +70,22 @@ class FixedSampler:
     def clear_chekpoint(self):
         pass
 class CachedSampler:
-    def __init__(self, graph_size=None, seed=None):
+    def __init__(self, graph_size=None, seed=None, sample_type=SampleType.Adjacency):
         assert graph_size
-        self.sampler = RandomSampler(graph_size, seed)
+        self.sampler = RandomSampler(graph_size, seed, type=sample_type)
+        self.sampler.sample_type = sample_type
         self._start_state = None
+
+    @property
+    def sample_type(self):
+        return self.sample.sample_type
+    @sample_type.setter
+    def sample_type(self, type):
+        self.sample.sample_type = type
 
     def sample(self):
         if self._start_state == None: self._start_state = self.sampler.sample()
+        #return torch.zeros(self._start_state.shape).int()
         return self._start_state.clone()
     def reset(self):
         self._start_state = None
@@ -58,9 +97,17 @@ class CachedSampler:
 # If checkpoint is present, returns the cached value when sampled.
 # If there is no checkpoint, will sample from the fallback_sampler passed in init.
 class CheckpointSampler:
-    def __init__(self, fallback_sampler):
+    def __init__(self, fallback_sampler, sample_type = SampleType.Adjacency):
         self._fallback_sampler = fallback_sampler
+        self._fallback_sampler.sample_type = sample_type
         self._state_cache = None
+
+    @property
+    def sample_type(self):
+        return self._fallback_sampler.sample_type
+    @sample_type.setter
+    def sample_type(self, type):
+        self._fallback_sampler.sample_type = type
 
     def sample(self):
         if self._state_cache == None:

@@ -76,12 +76,14 @@ class AbstractSpinGlassHamiltonian():
         local_spins[local_spins==0] = -1
         # Unpack size of i,j dimensions, respectively
         dim_i, dim_j = local_spins.shape
+        self.J(local_spins.shape)
         energy = 0
         # Iterate over cartesian product of all index pairs.
         # We know a priori what the spin_ij, and spin_lm are, but we need to be told by
         # our subclass how to compute J, so defer to self.J
-        for (i,j,l,m) in itertools.product(range(dim_i), range(dim_j), range(dim_i), range(dim_j)):
-            energy += local_spins[i,j] * local_spins[l,m] * self.J(spins.shape, i, j, l, m) 
+        for (i,j) in itertools.product(range(dim_i), range(dim_j)):
+            # Vectorize computation by computing all (l,m) pairs at once.
+            energy += (local_spins[i,j] * local_spins * self.J_Mat[i,j]).sum()
         # Energy is negative (Dr. Betre 20200105), but we need +'ve number to take logs.
         # And we need a -'ve number to minimize (for gradient descent).
         # So, in order to turn this number back into a "real" energy, compute
@@ -90,25 +92,26 @@ class AbstractSpinGlassHamiltonian():
 
 # Nearest-neighbor interactions only.
 class IsingHamiltonian(AbstractSpinGlassHamiltonian):
-    @staticmethod
-    def _J(size, i, j, l, m):
-        # We have a toroidal surface (wraps at edges).
-        # Distance formulas are extracted from:
-        #   https://blog.demofox.org/2017/10/01/calculating-the-distance-between-points-in-wrap-around-toroidal-space/
-        #   https://stackoverflow.com/a/3041398
-        x_dist = abs(i-l)
-        if x_dist > size[0]/2: x_dist = size[0] - x_dist
-        y_dist = abs(j-m)
-        if y_dist > size[1]/2: y_dist = size[1] - y_dist
-        return -1 if (x_dist<=1) ^ (y_dist<=1) else 0
+    # Simple lookup on pre-computed
+    def _J(self, size):
+        if self.J_Mat is None:
+            dim_i, dim_j = size
+            self.J_Mat = torch.zeros((dim_i, dim_j, dim_i, dim_j))
+            # Fill in the "adjacency" matrix for the ising model.
+            for (i,j) in itertools.product(range(dim_i), range(dim_j)):
+                self.J_Mat[i,j, i-1,j] = 1
+                self.J_Mat[i,j, i,j-1] = 1
+                self.J_Mat[i,j, (i+1)%dim_i,j] = 1
+                self.J_Mat[i,j, i,(j+1)%dim_i] = 1
 
     def __init__(self):
         super(IsingHamiltonian, self).__init__(self._J)
+        self.J_Mat = None
 
 # Allow for arbitrary, random interaction between any two particles.
 class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
     # Simple lookup on pre-computed
-    def _J(self, size, i, j, l, m):
+    def _J(self, size):
         if self.J_Mat is None:
             dim_i, dim_j = size
             # Mode where we only allow interactions of {-1, +1}
@@ -125,8 +128,6 @@ class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
                 # Indecies l,m span the same ranges as (i, j) respectively.
                 self.J_Mat = self._dist.sample((dim_i, dim_j, dim_i, dim_j))
 
-        return self.J_Mat[i, j, l, m]
-
     def __init__(self, categorical=False):
         super(SpinGlassHamiltonian, self).__init__(self._J)
         self.categorical = categorical
@@ -134,3 +135,5 @@ class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
         # the same between timesteps. Defering generation to the call of _J means we don't
         # have to pre-compute the size of this thing in the command line.
         self.J_Mat = None
+
+

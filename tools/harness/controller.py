@@ -123,19 +123,32 @@ def build_actor_critic(hypers, env):
 #     Entry point     #
 #######################
 def run_shared(hypers={}):
+    global agents
     if not hypers['seed']:
         hypers['seed'] = np.random.randint(0, 2**32, (1,))
     dist = graphity.task.task.TaskDistribution()
-    sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'], seed=hypers['seed'])
-    hypers['env'] = graphity.environment.sim.Simulator(hypers['H'], 
-        hypers['n'], sampler=sampler
-    )
-
-    global agents
+    mask_triu=True
+    if isinstance(hypers['H'], graphity.environment.reward.AbstractSpinGlassHamiltonian):
+        sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'], seed=hypers['seed'],
+            sample_type=graphity.task.sampler.SampleType.Random
+        )
+        hypers['env'] = graphity.environment.sim.SpinGlassSimulator(hypers['H'], 
+            hypers['n'], sampler=sampler
+        )
+        mask_triu = False
+    else:
+        sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'], seed=hypers['seed'])
+        
+        hypers['env'] = graphity.environment.sim.Simulator(hypers['H'], 
+            hypers['n'], sampler=sampler
+        )
+    
     for idx, alg in enumerate(hypers['alg']):
         critic, actor = build_actor_critic(hypers, hypers['env'])
         critic, actor = critic.to(hypers['device']), actor.to(hypers['device'])
         agent = agents[alg](hypers, hypers['env'], critic, actor)
+        if 'sampling_strategy' in agent.__dict__:
+            agent.sampling_strategy.mask_triu = mask_triu
         alg_name = "_".join(alg.split("_")[:-1])
 
         dist.add_task(librl.task.Task.Definition(graphity.task.task.GraphTask, 
@@ -344,7 +357,7 @@ def create_H_options(parser, set_default=True):
     hamiltonian_group.add_argument("--masked-a2d", action='store_const', const=graphity.environment.reward.LogASquaredD(2), dest='H', help="Mask out diagonal (default) when computing H.")
     hamiltonian_group.add_argument("--unmasked-a2d", action='store_const', const=graphity.environment.reward.LogASquaredD(2, keep_diag=True), dest='H', help="Keep diagonal when computing H.")
     hamiltonian_group.add_argument("--ising", action='store_const', const=graphity.environment.reward.IsingHamiltonian(), dest='H', help="Keep diagonal when computing H.")
-    hamiltonian_group.add_argument("--spin-glass", action='store_const', const=graphity.environment.reward.SpinGlassHamiltonian(categorical=True), dest='H', help="Keep diagonal when computing H.")
+    hamiltonian_group.add_argument("--spin-glass", action='store_const', const=graphity.environment.reward.SpinGlassHamiltonian(categorical=False), dest='H', help="Keep diagonal when computing H.")
     if set_default: hamiltonian_group.set_defaults(H=graphity.environment.reward.LogASquaredD(2))
     
 

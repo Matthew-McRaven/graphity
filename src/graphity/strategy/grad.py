@@ -85,12 +85,13 @@ class beta_sampling_strategy:
         size = adj.shape[-1]
         grad = self.grad_fn(adj)
         min, max = torch.min(grad.view(-1)), torch.max(grad.view(-1))
-        grad = (grad - min)*(-1)/ (max - min)
+        grad = (grad - min)/ (max - min)
         #TODO: Range compression.
         masked_grad = mask_grads(grad) if self.mask_triu else grad
 
         value = self.dist.sample((1,))
         index = torch.argmin((masked_grad-value).abs())
+        
         # Convert 1d index to 2d index (i.e., column & row)
         col, row = index // (size),  index % size
         # Must stack along dim=-1 in order to properly join pairs.

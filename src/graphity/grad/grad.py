@@ -10,10 +10,16 @@ import graphity.environment.toggle
 # Record Δ energy at for each edge pair [i, j].
 def graph_gradient(graph, H, allow_self_loop=False):
     local_graph = graph.clone().detach()
-    local_graph.requires_grad_(False)
-    grad = torch.zeros(graph.shape, dtype=float)
-    dim_i, dim_j = graph.shape
     current_energy = H(graph)
+    grad = torch.zeros(local_graph.shape)
+    dim_i, dim_j = local_graph.shape
+    if H.decomposable and True:
+        for (i,j) in itertools.product(range(dim_i), range(dim_j)): 
+            contribution = H.contribution(local_graph)
+            new_energy = H.fast_toggle(local_graph, contribution, (i,j))
+            new_energy = H.normalize(new_energy.sum())
+            grad[i, j] =  new_energy - current_energy
+    else:
         for (i,j) in itertools.product(range(dim_i), range(dim_j)):
             graphity.environment.toggle.toggle_edge(i, j, local_graph, allow_self_loop)
             toggled_energy = H(local_graph)

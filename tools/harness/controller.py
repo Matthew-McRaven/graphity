@@ -41,37 +41,37 @@ def register_agent(agent_fn):
 @register_agent   
 def random_helper(hypers, env, *args):
     agent = librl.agent.mdp.RandomAgent(env.observation_space, env.action_space)
-    return agent
+    return agent, lambda x:x
 
 @register_agent
 def metropolis_helper(hypers, env, *args):
     agent = graphity.agent.core.MetropolisAgent(graphity.strategy.base.random_sampling_strategy(1))
-    return agent
+    return agent, lambda x:x
 
 @register_agent
 def grad_descent_helper(hypers, env, *args):
     grad_fn = graphity.strategy.grad.TrueGrad(env.H)
     agent = graphity.agent.core.ForwardAgent(graphity.strategy.grad.gd_sampling_strategy(grad_fn))
-    return agent
+    return agent, lambda x: x/hypers['n']**2
 
 @register_agent
 def metropolis_grad_descent_helper(hypers, env, *args):
     grad_fn = graphity.strategy.grad.TrueGrad(env.H)
     agent = graphity.agent.core.MetropolisAgent(graphity.strategy.grad.beta_sampling_strategy(grad_fn))
-    return agent
+    return agent, lambda x: x/hypers['n']**2
 
 @register_agent
 def stochastic_grad_descent_helper(hypers, env, *args):
     grad_fn = graphity.strategy.grad.TrueGrad(env.H)
     agent = graphity.agent.core.ForwardAgent(graphity.strategy.grad.beta_sampling_strategy(grad_fn))
-    return agent
+    return agent, lambda x: x/hypers['n']**2
 
 @register_agent
 def neural_grad_descent_helper(hypers, env, *args):
     assert 'pretrained' in hypers and hypers['pretrained'], "When specifiying nn-based models, \"--pretrained-model\" is required."
     grad_fn = graphity.strategy.grad.NeuralGrad(torch.load(hypers['pretrained']))
     agent = graphity.agent.core.ForwardAgent(graphity.strategy.grad.gd_sampling_strategy(grad_fn))
-    return agent
+    return agent, lambda x: x/hypers['n']**2
 
 @register_agent
 def anneal_stochastic_grad_descent_helper(hypers, env, *args):
@@ -81,7 +81,7 @@ def anneal_stochastic_grad_descent_helper(hypers, env, *args):
     agent = graphity.agent.core.SimulatedAnnealingAgent(graphity.strategy.grad.beta_sampling_strategy(grad_fn),
         .75, 10, .5
     )
-    return agent
+    return agent, lambda x:x/hypers['n']**2
 
 @register_agent
 def simulated_annealing_helper(hypers, env, *args):
@@ -91,7 +91,7 @@ def simulated_annealing_helper(hypers, env, *args):
     agent = graphity.agent.core.SimulatedAnnealingAgent(graphity.strategy.base.random_sampling_strategy(),
         .75, 10, .5
     )
-    return agent
+    return agent, lambda x:x
 """
 Until errors in RL algorithms have been resolved, it is not advised to use this code.
 """
@@ -99,21 +99,21 @@ Until errors in RL algorithms have been resolved, it is not advised to use this 
 def vpg_helper(hypers, env, critic_net, policy_net):
     agent = librl.agent.pg.REINFORCEAgent(policy_net, explore_bonus_fn=librl.reward.basic_entropy_bonus())
     agent.train()
-    return agent
+    return agent, lambda x:x
 
 @register_agent   
 def pgb_helper(hypers, env, critic_net, policy_net):
     actor_loss = librl.nn.pg_loss.PGB(critic_net, explore_bonus_fn=librl.reward.basic_entropy_bonus())
     agent = librl.agent.pg.ActorCriticAgent(critic_net, policy_net, actor_loss=actor_loss)
     agent.train()
-    return agent
+    return agent, lambda x:x
 
 @register_agent
 def ppo_helper(hypers, env, critic_net, policy_net):
     actor_loss = librl.nn.pg_loss.PPO(critic_net, explore_bonus_fn=librl.reward.basic_entropy_bonus())
     agent = librl.agent.pg.ActorCriticAgent(critic_net, policy_net, actor_loss=actor_loss)
     agent.train()
-    return agent
+    return agent, lambda x:x
 
 #######################
 #  Init Environments  #
@@ -156,15 +156,18 @@ def run_shared(hypers={}):
     for idx, alg in enumerate(hypers['alg']):
         critic, actor = build_actor_critic(hypers, hypers['env'])
         critic, actor = critic.to(hypers['device']), actor.to(hypers['device'])
-        agent = agents[alg](hypers, hypers['env'], critic, actor)
+        agent, step_mod = agents[alg](hypers, hypers['env'], critic, actor)
         if 'sampling_strategy' in agent.__dict__:
             agent.sampling_strategy.mask_triu = mask_triu
         alg_name = "_".join(alg.split("_")[:-1])
-
+        episode_length = hypers['episode_length']
+        if hypers['compare_method'] == 'H':
+            episode_length = int(step_mod(episode_length))
+        print(alg_name, episode_length)
         dist.add_task(librl.task.Task.Definition(graphity.task.task.GraphTask, 
             agent=agent, name=alg_name, number = idx, env=hypers['env'], 
             sampler=hypers['env'].sampler,
-            episode_length=hypers['episode_length'],
+            episode_length=episode_length,
             trajectories=hypers['trajectories'])
         )
 
@@ -179,6 +182,7 @@ def run_entry_point(args):
     hypers = {}
     hypers['H'] = args.H
     hypers['n'] = args.n
+    hypers['compare_method'] = args.compare_method
     hypers['pretrained'] = args.pretrained
     hypers['device'] = args.device
     hypers['epochs'] = args.epochs
@@ -360,6 +364,10 @@ def create_alg_options(parser, set_default=True):
     learn_alg_group.add_argument("--ppo", action='append_const', const=ppo_helper.__name__, dest='alg', help="Train a RL agent using PPO.")
     if set_default: learn_alg_group.set_defaults(alg=[])
     parser.add_argument("--pretrained-model", dest="pretrained", help="Pretrained neural net model. Required if \"--nngd\" is selected.")
+    compare_type = parser.add_mutually_exclusive_group()
+    compare_type.add_argument("--compare-toggles", action="store_const", const="time", dest="compare_method", help="Compare algorithms on number of timesteps.")
+    compare_type.add_argument("--compare-H-calls", action="store_const", const="H", dest="compare_method", help="Compare methods on number of H invocations.")
+    compare_type.set_defaults(compare_method="time")
 
 def create_H_options(parser, set_default=True):
     # Hamiltonian choices

@@ -74,6 +74,16 @@ def neural_grad_descent_helper(hypers, env, *args):
     return agent
 
 @register_agent
+def anneal_stochastic_grad_descent_helper(hypers, env, *args):
+    grad_fn = graphity.strategy.grad.TrueGrad(env.H)
+    # Don't give simulated annealing grad descent, that isn't a fair comparison for us!
+    # We proposed grad descent as a search strategy.
+    agent = graphity.agent.core.SimulatedAnnealingAgent(graphity.strategy.grad.beta_sampling_strategy(grad_fn),
+        .75, 10, .5
+    )
+    return agent
+
+@register_agent
 def simulated_annealing_helper(hypers, env, *args):
     grad_fn = graphity.strategy.grad.TrueGrad(env.H)
     # Don't give simulated annealing grad descent, that isn't a fair comparison for us!
@@ -341,6 +351,7 @@ def create_alg_options(parser, set_default=True):
     learn_alg_group.add_argument("--mgd", action='append_const', const=metropolis_grad_descent_helper.__name__, dest='alg', help="Search state space using metropolis grad descent.")
     learn_alg_group.add_argument("--sgd", action='append_const', const=stochastic_grad_descent_helper.__name__, dest='alg', help="Search state space using stochastic grad descent.")
     learn_alg_group.add_argument("--nngd", action='append_const', const=neural_grad_descent_helper.__name__, dest='alg', help="Search state space using stochastic grad descent.")
+    learn_alg_group.add_argument("--asgd", action='append_const', const=anneal_stochastic_grad_descent_helper.__name__, dest='alg', help="Search state space using stochastic grad descent with SA.")
     learn_alg_group.add_argument("--sa", action='append_const', const=simulated_annealing_helper.__name__, dest='alg', help="Search state space using simulated annealing.")
     learn_alg_group.add_argument("--vpg", action='append_const', const=vpg_helper.__name__, dest='alg', help="Train a RL agent using VPG.")
     learn_alg_group.add_argument("--pgb", action='append_const', const=pgb_helper.__name__, dest='alg', help="Train a RL agent using PGB.")

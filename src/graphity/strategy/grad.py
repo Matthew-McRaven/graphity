@@ -13,7 +13,7 @@ class TrueGrad:
         assert H
         self.H = H
     def __call__(self, adj):
-        return graphity.grad.graph_gradient(adj, self.H).tril()
+        return graphity.grad.graph_gradient(adj, self.H)
 
 # Approximate the gradient using a neural network.
 class NeuralGrad:

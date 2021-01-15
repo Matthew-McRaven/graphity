@@ -136,7 +136,7 @@ def run_shared(hypers={}):
     global agents
     if not hypers['seed']:
         hypers['seed'] = np.random.randint(0, 2**32, (1,))
-    dist = graphity.task.task.TaskDistribution()
+    dist = graphity.task.TaskDistribution()
     mask_triu=True
     if isinstance(hypers['H'], graphity.environment.reward.AbstractSpinGlassHamiltonian):
         sampler = graphity.task.sampler.CachedSampler(graph_size=hypers['n'], seed=hypers['seed'],

@@ -3,8 +3,6 @@ import copy
 # Returns a real-numbered matrix of 
 import torch
 
-import graphity.environment.toggle
-
 # Compute the 1'st grads of the graph.
 # That is, toggle every edge pair from the starting graph.
 # Record Δ energy at for each edge pair [i, j].
@@ -27,4 +25,17 @@ def graph_gradient(graph, H, allow_self_loop=False):
             assert i==j or local_graph[i,j] != graph[i,j]
             assert i==j or (local_graph != graph).any()
             graphity.environment.toggle.toggle_edge(i, j, local_graph, allow_self_loop)
+    return grad
+
+def spin_gradient(spins, H, action_size):
+    print(spins.shape)
+    local_graph = graph.clone().detach()
+    current_energy = H(graph)
+    grad = torch.zeros((action_size,*local_graph.shape))
+    dim_i, dim_j = local_graph.shape
+    for (i,j) in itertools.product(range(dim_i), range(dim_j)): 
+        contribution = H.contribution(local_graph)
+        new_energy = H.fast_toggle(local_graph, contribution, (i,j))
+        new_energy = H.normalize(new_energy.sum())
+        grad[i, j] =  new_energy - current_energy
     return grad

@@ -5,7 +5,6 @@ import torch.optim
 from torch import nn
 
 import graphity.task.sampler
-import graphity.environment.reward
 import graphity.grad.grad
 
 #Predict the value / energy of a given graph

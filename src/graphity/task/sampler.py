@@ -9,6 +9,7 @@ import graphity.graph.generate, graphity.graph.utils
 class SampleType(enum.Enum):
     Adjacency = enum.auto()
     Random = enum.auto()
+
 # Randomly generates adjacency matricies when sampled.
 # Doesn't care about checkpointing
 class RandomSampler:
@@ -20,7 +21,7 @@ class RandomSampler:
             self.rng = numpy.random.Generator(self.bit_gen)
         else:
             self.rng = None
-    def sample(self):
+    def sample(self, **kwargs):
         if self.sample_type == SampleType.Adjacency:
             self.state = graphity.graph.generate.random_adj_matrix(self.graph_size, rng=self.rng)
         elif self.sample_type == SampleType.Random:
@@ -56,7 +57,7 @@ class FixedSampler:
     def sample_type(self, type):
         self._sample_type = type
         
-    def sample(self):
+    def sample(self, **kwargs):
         if not self._start_state: 
             if self._sample_type == SampleType.Adjacency: 
                 self._start_state = graphity.graph.generate.random_adj_matrix(self.graph_size)
@@ -69,12 +70,13 @@ class FixedSampler:
         pass
     def clear_chekpoint(self):
         pass
+
 class CachedSampler:
     def __init__(self, graph_size=None, seed=None, sample_type=SampleType.Adjacency):
         assert graph_size
         self.sampler = RandomSampler(graph_size, seed, type=sample_type)
         self.sampler.sample_type = sample_type
-        self._start_state = None
+        self._start_states = {}
 
     @property
     def sample_type(self):
@@ -83,10 +85,10 @@ class CachedSampler:
     def sample_type(self, type):
         self.sample.sample_type = type
 
-    def sample(self):
-        if self._start_state == None: self._start_state = self.sampler.sample()
-        #return torch.zeros(self._start_state.shape).int()
-        return self._start_state.clone()
+    def sample(self, epoch=None):
+        if epoch not in self._start_states: self._start_states[epoch] = self.sampler.sample()
+        return self._start_states[epoch].clone()
+        
     def reset(self):
         self._start_state = None
     def checkpoint(self, *args):
@@ -109,7 +111,7 @@ class CheckpointSampler:
     def sample_type(self, type):
         self._fallback_sampler.sample_type = type
 
-    def sample(self):
+    def sample(self, **kwargs):
         if self._state_cache == None:
             return self._fallback_sampler.sample()
         else:

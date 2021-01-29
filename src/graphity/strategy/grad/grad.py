@@ -7,26 +7,10 @@ import librl.train.cc.pg
 # Needed to compute grads
 import graphity.grad
 
-# Compute the true gradient, rather than using an approximation.
-class TrueGrad:
-    def __init__(self, H):
-        assert H
-        self.H = H
-    def __call__(self, adj):
-        return graphity.grad.graph_gradient(adj, self.H)
+from .utils import *
 
-# Approximate the gradient using a neural network.
-class NeuralGrad:
-    def __init__(self, model):
-        self.model = model
-    def __call__(self, adj):
-        return self.model(adj)
 
-def mask_grads(grad):
-    size = grad.shape[-1]
-    # Prevent NN from toggling diagonal and duplicate edges in upper tril.
-    upper_mask = torch.full((size,size), float('inf')).triu(0)
-    return -(grad + upper_mask)
+
 
 class gd_sampling_strategy:
     def __init__(self, grad_fn=None, mask_triu=True):

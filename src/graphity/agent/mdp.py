@@ -4,31 +4,11 @@ import numpy as np
 from numpy.random import Generator, PCG64
 
 # Needed for add_agent_attr() decorator
-import librl.agent
-import librl.train.cc.pg 
-
-# An agent without backtracking.
-@librl.agent.add_agent_attr()
-class ForwardAgent(nn.Module):
-    def __init__(self, sampling_strategy):
-        # Must initialize torch.nn.Module
-        super(ForwardAgent, self).__init__()
-        self.sampling_strategy = sampling_strategy
-
-    def act(self, adj):
-        return self.forward(adj)
-
-    # Implement required pytorch interface
-    def forward(self, adj):
-        # Don't yet deal with batched input.
-        assert len(adj.shape) == 2
-        action, log_probs = self.sampling_strategy(adj)
-
-        return action, log_probs
+from . import add_agent_attr
 
 # Markov agent is willing to back out last edge, with some prbability, if that action increased the energy of the sytstem.
 # This "regret" factor is beta, the inverse of the temperature.
-@librl.agent.add_agent_attr(allow_callback=True)
+@add_agent_attr(allow_callback=True)
 class MetropolisAgent(nn.Module):
     def __init__(self, sampling_strategy, beta=2):
         # Must initialize torch.nn.Module
@@ -100,7 +80,7 @@ class MetropolisAgent(nn.Module):
 # Implements Simulated Annealing.
 # See: On the Design of an Adaptive Simulated Annealing Algorithm, Cicirello 2009.
 #   https://www.cicirello.org/publications/CP2007-Autonomous-Search-Workshop.pdf
-@librl.agent.add_agent_attr(allow_callback=True)
+@add_agent_attr(allow_callback=True)
 class SimulatedAnnealingAgent(MetropolisAgent):
     def __init__(self, sampling_strategy, alpha, round_length, T0):
         super(SimulatedAnnealingAgent, self).__init__(sampling_strategy)
@@ -119,15 +99,3 @@ class SimulatedAnnealingAgent(MetropolisAgent):
         self._timestep += 1
         return super().forward(adj, toggles)
         
-
-# Implement training procedure for grad descent only.
-# Skip MAML, because this agent doesn't learning anything. 
-@librl.train.cc.pg.policy_gradient_update.register(ForwardAgent)
-def _(agent, tasks_iterable):
-    pass
-
-# Implement training procedure for grad descent only.
-# Skip MAML, because this agent doesn't learning anything. 
-@librl.train.cc.pg.policy_gradient_update.register(MetropolisAgent)
-def _(agent, tasks_iterable):
-    pass

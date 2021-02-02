@@ -33,12 +33,16 @@ def spin_gradient(spins, H, action_count):
     dims = [range(x) for x in local_spins.shape]
     contrib = H.contribution(local_spins)
     current_energy = H.normalize(contrib.sum())
-    for i in range(action_count):
+    mod = 0
+    for i in range(0, action_count+1):
         for dim in itertools.product(*dims): 
             site_val = local_spins[tuple(dim)]
-            local_spins[tuple(dim)] = (local_spins[tuple(dim)] + (i+2))%3 - 1
+            if site_val == i: 
+                mod = 1
+                continue
+            local_spins[tuple(dim)] = i
             new_contrib = H.fast_toggle(local_spins, contrib, (dim, site_val))
             new_energy = H.normalize(new_contrib.sum())
             local_spins[tuple(dim)] = site_val
-            grad[(i, *dim)] =  new_energy - current_energy
+            grad[(i-mod, *dim)] =  new_energy - current_energy
     return grad

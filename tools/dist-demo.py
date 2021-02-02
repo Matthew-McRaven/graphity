@@ -23,7 +23,7 @@ def main():
     hypers['epochs'] = 4
     hypers['episode_count'] = 1
     hypers['task_count'] = 1
-    hypers['episode_length'] = 100
+    hypers['episode_length'] = 1000
     hypers['graph_size'] = 4
     hypers['toggles_per_step'] = 1
 
@@ -32,14 +32,20 @@ def main():
     #env = graphity.environment.biqg.Simulator(H, graph_size=hypers['graph_size'])
     H = graphity.environment.lattice.IsingHamiltonian()
     #H = graphity.environment.lattice.SpinGlassHamiltonian(categorical=True)
-    glass_shape = (hypers['graph_size'],)
+    glass_shape = (hypers['graph_size'], hypers['graph_size'])
     env = graphity.environment.lattice.SpinGlassSimulator(glass_shape=glass_shape, H=H)
     hypers['env'] = env
     # Stochastic agents
     # Gradient descent agents
     ss = graphity.strategy.RandomSearch()
-
+    tg = graphity.strategy.TrueSpinGrad(H, 2)
+    gd = graphity.strategy.gd_sampling_strategy(tg)
+    smgd = graphity.strategy.softmax_sampling_strategy(tg)
+    bgd = graphity.strategy.beta_sampling_strategy(tg)
     agents = []
+    agents.append(("gd", graphity.agent.det.ForwardAgent(gd)))
+    agents.append(("sm", graphity.agent.det.ForwardAgent(smgd)))
+    agents.append(("bgd", graphity.agent.det.ForwardAgent(bgd)))
     agents.append(("fa", graphity.agent.det.ForwardAgent(ss)))
     agents.append(("ma", graphity.agent.mdp.MetropolisAgent(ss)))
     agents.append(("sa", graphity.agent.mdp.SimulatedAnnealingAgent(ss, 2, 4, 1)))

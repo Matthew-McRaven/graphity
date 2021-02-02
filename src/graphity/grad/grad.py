@@ -28,7 +28,6 @@ def graph_gradient(graph, H, allow_self_loop=False):
     return grad
 
 def spin_gradient(spins, H, action_count):
-    print(spins.shape)
     local_spins = spins.clone().detach()
     grad = torch.zeros((action_count, *local_spins.shape))
     dims = [range(x) for x in local_spins.shape]

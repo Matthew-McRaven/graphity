@@ -12,7 +12,29 @@ class SampleType(enum.Enum):
 
 # Randomly generates adjacency matricies when sampled.
 # Doesn't care about checkpointing
-class RandomSampler:
+class RandomGlassSampler:
+    def __init__(self, glass_shape=None, seed=None):
+        self.glass_shape = glass_shape
+        self._sample_type = type
+        if seed != None:
+            self.bit_gen = numpy.random.PCG64(seed)
+            self.rng = numpy.random.Generator(self.bit_gen)
+        else:
+            self.rng = None
+    def sample(self, **kwargs):
+        self.state = graphity.lattice.generate.random_glass(self.glass_shape, rng=self.rng)
+        return self.state
+
+
+    def checkpoint(self, *args):
+        pass
+    def clear_chekpoint(self):
+        pass
+
+
+# Randomly generates adjacency matricies when sampled.
+# Doesn't care about checkpointing
+class RandomGraphSampler:
     def __init__(self, graph_size=None, seed=None, type=SampleType.Adjacency):
         self.graph_size = graph_size
         self._sample_type = type
@@ -41,7 +63,7 @@ class RandomSampler:
 
 # Always returns the same adjacency matrix after being sampled once.
 # Doesn't care about checkpointing
-class FixedSampler:
+class FixedGraphSampler:
     def __init__(self, start_state=None, graph_size=None, sample_type = SampleType.Adjacency):
         assert not (graph_size != None and start_state != None)
         if start_state != None:
@@ -71,7 +93,7 @@ class FixedSampler:
     def clear_chekpoint(self):
         pass
 
-class CachedSampler:
+class CachedGraphSampler:
     def __init__(self, graph_size=None, seed=None, sample_type=SampleType.Adjacency):
         assert graph_size
         self.sampler = RandomSampler(graph_size, seed, type=sample_type)
@@ -98,7 +120,7 @@ class CachedSampler:
 # Remembers the best (state, energy) pair passed to checkpoint() unitl the checkpoint is cleared.
 # If checkpoint is present, returns the cached value when sampled.
 # If there is no checkpoint, will sample from the fallback_sampler passed in init.
-class CheckpointSampler:
+class CheckpointGraphSampler:
     def __init__(self, fallback_sampler, sample_type = SampleType.Adjacency):
         self._fallback_sampler = fallback_sampler
         self._fallback_sampler.sample_type = sample_type

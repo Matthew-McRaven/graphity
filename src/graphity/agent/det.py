@@ -19,8 +19,6 @@ class ForwardAgent(nn.Module):
 
     # Implement required pytorch interface
     def forward(self, adj):
-        # Don't yet deal with batched input.
-        assert len(adj.shape) == 2
         action, log_probs = self.sampling_strategy(adj)
 
         return action, log_probs

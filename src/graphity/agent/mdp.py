@@ -63,9 +63,6 @@ class MetropolisAgent(nn.Module):
 
     # Implement required pytorch interface
     def forward(self, adj, toggles=1):
-        # Don't yet deal with batched input.
-        assert len(adj.shape) == 2
-
         # Need to cache which action weare going to take
         action, log_prob = None, None
         # If we do not have two look-back states, we can't make inferences about environment.

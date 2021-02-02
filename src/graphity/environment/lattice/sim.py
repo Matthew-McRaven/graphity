@@ -26,9 +26,10 @@ class SpinGlassSimulator(gym.Env):
         self.glass_shape = glass_shape
         self.adj_mat = None
         self.allow_cuda = allow_cuda
-        low = np.array([0,0,2])
+        # Allow arbitary dimensions for spin glasses
+        low = np.array([*glass_shape, 2])
         hi = np.array([*glass_shape,3])
-        self.action_space = gym.spaces.Box(low=low, high=hi, shape=(3,), dtype=np.int8)
+        self.action_space = gym.spaces.Box(low=low, high=hi, shape=(len(glass_shape)+1,), dtype=np.int8)
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=glass_shape, dtype=np.int8)
 
 
@@ -64,7 +65,7 @@ class SpinGlassSimulator(gym.Env):
             # Must coerce to tuple, or the tensor will return the rows
             # corresponding to dims.
             old_state = int(next_state[tuple(dims)])
-            changed_sites.append((*dims, old_state))
+            changed_sites.append((dims, old_state))
             next_state[tuple(dims)] = (next_state[tuple(dims)] + toggle)%3 - 1
 
         # Update self pointer, and score state.

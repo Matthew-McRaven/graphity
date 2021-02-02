@@ -9,7 +9,7 @@ import graphity.environment.biqg.reward
 import graphity.graph.generate, graphity.graph.utils
 from .reward import *
 
-class Simulator(gym.Env):
+class GraphSimulator(gym.Env):
     metadata = {}
     def __init__(self, H=ASquaredD(2), graph_size=4, allow_self_loop=False, allow_cuda=False):
         self.H = H

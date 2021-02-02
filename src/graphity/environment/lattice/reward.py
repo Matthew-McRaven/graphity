@@ -11,13 +11,14 @@ def contribution(spins, J):
 
     contribution = torch.zeros(local_spins.shape, dtype=torch.float32)
     # Unpack size of i,j dimensions, respectively
-    dim_i, dim_j = local_spins.shape
+    dims = [range(dim) for dim in local_spins.shape]
 
     # Iterate over cartesian product of all index pairs.
-    for (i,j) in itertools.product(range(dim_i), range(dim_j)):
+    for site in itertools.product(*dims):
+        site = tuple(site)
         # Vectorize computation by computing all (l,m) pairs at once.
         # Scalar * 2d tensor * 2d tensor, summed.
-        contribution[i,j] = (local_spins[i,j] * J[i,j] * local_spins).double().sum()
+        contribution[site] = (local_spins[site] * J[site] * local_spins).double().sum()
     return contribution
 
 ##########################
@@ -50,13 +51,15 @@ class AbstractSpinGlassHamiltonian():
     def fast_toggle(self, spins, contribution, site):
         self.J(spins.shape)
         # Unpack size of i,j dimensions, respectively
-        changed_i, changed_j, old_site_value = site
+        site_index, old_site_value = site
+        slice_list = len(site_index) * [slice(0, None),]
+        slice_list.extend([idx for idx in site_index])
         #print(f"Changed ({changed_i},{changed_j}) from {old_site_value} to {spins[changed_i, changed_j]}")
         # Only place each contribution can change is where it interacted with the changed site.
         # To compute new energy, subtract out the old contribution for each location, and add in the new contribution.
-        contribution += spins * self.J_Mat[:,:, changed_i,changed_j] * (spins[changed_i,changed_j]-old_site_value)
+        contribution += spins * self.J_Mat[tuple(slice_list)] * (spins[tuple(site_index)]-old_site_value)
         # However, the contribution for the change site is entirely hard, so let's just re-compute from scratch.
-        contribution[changed_i, changed_j] = (spins[changed_i, changed_j] * self.J_Mat[changed_i, changed_j] * spins).double().sum()
+        contribution[tuple(site_index)] = (spins[tuple(site_index)] * self.J_Mat[tuple(site_index)] * spins).double().sum()
         return contribution
 
     def contribution(self, spins):
@@ -100,15 +103,37 @@ class AbstractSpinGlassHamiltonian():
 class IsingHamiltonian(AbstractSpinGlassHamiltonian):
     # Simple lookup on pre-computed
     def _J(self, size):
+        # TODO: Extend for arbitrary dimensionality.
         if self.J_Mat is None:
-            dim_i, dim_j = size
-            self.J_Mat = torch.zeros((dim_i, dim_j, dim_i, dim_j), dtype=torch.float32)
-            # Fill in the "adjacency" matrix for the ising model.
-            for (i,j) in itertools.product(range(dim_i), range(dim_j)):
-                self.J_Mat[i,j, i-1,j] = 1.
-                self.J_Mat[i,j, i,j-1] = 1.
-                self.J_Mat[i,j, (i+1)%dim_i,j] = 1.
-                self.J_Mat[i,j, i,(j+1)%dim_i] = 1.
+            if len(size) == 1:
+                dim_i, = size
+                self.J_Mat = torch.zeros((dim_i, dim_i), dtype=torch.float32)
+                # Fill in the "adjacency" matrix for the ising model.
+                for i in range(dim_i):
+                    self.J_Mat[i, i-1] = 1.
+                    self.J_Mat[i, (i+1)%dim_i] = 1.
+            elif len(size) == 2:
+                dim_i, dim_j = size
+                self.J_Mat = torch.zeros((dim_i, dim_j, dim_i, dim_j), dtype=torch.float32)
+                # Fill in the "adjacency" matrix for the ising model.
+                for (i,j) in itertools.product(range(dim_i), range(dim_j)):
+                    self.J_Mat[i,j, i-1,j] = 1.
+                    self.J_Mat[i,j, i,j-1] = 1.
+                    self.J_Mat[i,j, (i+1)%dim_i,j] = 1.
+                    self.J_Mat[i,j, i,(j+1)%dim_i] = 1.
+            elif len(size) == 3:
+                dim_i, dim_j, dim_k = size
+                self.J_Mat = torch.zeros((dim_i, dim_j, dim_k, dim_i, dim_j, dim_k), dtype=torch.float32)
+                # Fill in the "adjacency" matrix for the ising model.
+                for (i,j,k) in itertools.product(range(dim_i), range(dim_j), range(dim_k)):
+                    self.J_Mat[i,j,k, i-1,j,k] = 1.
+                    self.J_Mat[i,j,k, i,j-1,k] = 1.
+                    self.J_Mat[i,j,k, i,j,k-1] = 1.
+                    self.J_Mat[i,j,k, (i+1)%dim_i,j,k] = 1.
+                    self.J_Mat[i,j,k, i,(j+1)%dim_i,k] = 1
+                    self.J_Mat[i,j,k, i,j,(k+1)%dim_i] = 1
+            else:
+                raise NotImplemented("TODO!")
 
     def __init__(self):
         super(IsingHamiltonian, self).__init__(self._J)
@@ -119,12 +144,12 @@ class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
     # Simple lookup on pre-computed
     def _J(self, size):
         if self.J_Mat is None:
-            dim_i, dim_j = size
+            size = tuple(2*size)
             # Mode where we only allow interactions of {-1, +1}
             if self.categorical:
                 self._dist = torch.distributions.binomial.Binomial(1, torch.tensor(.5))
                 # Indecies l,m span the same ranges as (i, j) respectively.
-                self.J_Mat = self._dist.sample((dim_i, dim_j, dim_i, dim_j))
+                self.J_Mat = self._dist.sample((*size,))
                 # Binomial outputs {0, 1}, but we need {-1, 1}. Replace 0 by -1.
                 self.J_Mat[self.J_Mat==0] = -1
                 self.J_Mat = self.J_Mat.float()
@@ -133,7 +158,7 @@ class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
                 mean,std = torch.tensor(0.0), torch.tensor(1.0)
                 self._dist = torch.distributions.normal.Normal(mean, std)
                 # Indecies l,m span the same ranges as (i, j) respectively.
-                self.J_Mat = self._dist.sample((dim_i, dim_j, dim_i, dim_j))
+                self.J_Mat = self._dist.sample((*size,))
 
     def __init__(self, categorical=False):
         super(SpinGlassHamiltonian, self).__init__(self._J)

@@ -38,90 +38,71 @@ import graphity.grad
 if __name__ == "__main__":
 	ray.init(address='auto')
 
-class TaskWrapper:
-	def __init__(self):
-		self.epoch = 0
-		self.index = 9
-		self.task = None
-
+def create_task(index):
+	dist = graphity.task.TaskDistribution()
+	H = graphity.environment.lattice.IsingHamiltonian()
+	glass_shape = (23, 23)
+	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
+	ss = graphity.strategy.RandomSearch()
+	agent = graphity.agent.det.ForwardAgent(ss)	
+	dist.add_task(graphity.task.Definition(graphity.task.GraphTask, 
+		agent=agent, env=graphity.environment.lattice.SpinGlassSimulator(glass_shape=glass_shape, H=H), 
+		episode_length=2*23**2,
+		name = "Lingus!!",
+		number = index,
+		sampler = random_sampler,
+		trajectories=1)
+	)
+	return dist.gather()[0]
 @ray.remote
 class controller:
 	def __init__(self, task_count):
-		self.task_count = 100
-		self.available_tasks = [(x, TaskWrapper()) for x in range(self.task_count)]
-		for idx, task in self.available_tasks:
-			dist = graphity.task.TaskDistribution()
-			H = graphity.environment.lattice.IsingHamiltonian()
-			glass_shape = (23, 23)
-			random_sampler = graphity.task.RandomGlassSampler(glass_shape)
-			ss = graphity.strategy.RandomSearch()
-			agent = graphity.agent.det.ForwardAgent(ss)	
-			dist.add_task(graphity.task.Definition(graphity.task.GraphTask, 
-				agent=agent, env=graphity.environment.lattice.SpinGlassSimulator(glass_shape=glass_shape, H=H), 
-				episode_length=2*23**2,
-				name = "Lingus!!",
-				number = idx,
-				sampler = random_sampler,
-				trajectories=1)
-			)
-			task.task = dist.gather()[0]
-		print("Out", flush=True)
-		self.mut = Lock()
+		self.task_count = task_count
+		self.available_tasks = [create_task(idx) for idx in range(task_count)]
 		self.epoch = 0
+		self.eq_checks = []
+		self.cont = True
 
-	def get_work(self):
-		self.mut.acquire()
-		rval = None
-		try:
-			rval = self.available_tasks.pop(0)
-		finally:
-			self.mut.release()
-		return rval
-	def cont(self):
-		return self.epoch < 200
-	def return_work(self, index, task):
-		self.mut.acquire()
-		if task.epoch > self.epoch:
-			self.epoch = task.epoch
-		try:
-			rval = self.available_tasks.append((index, task))
-		finally:
-			self.mut.release()
+	def run(self):
+		while self.cont:
+			# Check that objects can be transferred from each node to each other node.
+			workers = [train_ground_search.remote(task.number, self.epoch, task) for task in self.available_tasks]
+			if self.epoch % 5 == 0: self.eq_checks.append(in_equil.remote(self.epoch, self.available_tasks))
+			ready_refs, self.eq_checks = ray.wait(self.eq_checks, num_returns=1, timeout=0.0)
+			for obj in ready_refs: 
+				if ray.get(obj): self.cont = False
+			updated_tasks = ray.get(workers)
+			
+			self.epoch += 1
+@ray.remote(num_cpus=1)
+def in_equil(epoch, task_list):
+	print(f"Checking completion for epoch {epoch}")
+	time.sleep(10)
+	print(f"Finished checking completion for epoch {epoch}")
+	return epoch > 10
 
 @ray.remote(num_cpus=1)
-class worker:
-	def __init__(self, ctrl):
-		self.ctrl = ctrl
+def train_ground_search(index, epoch, task):
+	print(f"Task {index} on epoch {epoch}!!!!")
+	def run_single_timestep(engine, timestep):
+		task.sample(task, epoch=engine.state.epoch)
+		engine.state.timestep = timestep
 
-	def train_ground_search(self, task):
-		def run_single_timestep(engine, timestep):
-			task.sample(task, epoch=engine.state.epoch)
-			engine.state.timestep = timestep
+	trainer = ignite.engine.Engine(run_single_timestep)
 
-		trainer = ignite.engine.Engine(run_single_timestep)
+	@trainer.on(Events.EPOCH_STARTED)
+	def reset_environment_state(engine):
+		task.env.reset()
 
-		@trainer.on(Events.EPOCH_STARTED)
-		def reset_environment_state(engine):
-			task.env.reset()
+	@trainer.on(Events.EPOCH_COMPLETED)
+	def update_agents(engine):
+		pass
 
-		@trainer.on(Events.EPOCH_COMPLETED)
-		def update_agents(engine):
-			pass
-
-		trainer.run(range(5), max_epochs=1)
-
-	def work_cycle(self):
-		index, task = ray.get(ctrl.get_work.remote())
-		print(f"Working with {index} with epoch {task.epoch}", flush=True)
-		self.train_ground_search(task.task)
-		task.epoch += 1
-		ctrl.return_work.remote(index, task)
+	trainer.run(range(1), max_epochs=1)
+	task.clear_trajectories()
+	return task, {}
 		
-	def run(self):
-		while ray.get(self.ctrl.cont.remote()):
-			self.work_cycle()
 			
-ctrl = controller.remote(100)
-# Check that objects can be transferred from each node to each other node.
-workers = [worker.remote(ctrl) for _ in range(10)]
-ray.get([worker.run.remote() for worker in workers])
+ctrl = controller.remote(10)
+ray.get(ctrl.run.remote())
+

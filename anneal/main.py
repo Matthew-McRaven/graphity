@@ -65,13 +65,19 @@ class controller:
 
 	def run(self):
 		while self.cont:
+			# Launch eq check and workers before doing join's on either. This helps prevent performance bottlenecks.
 			# Check that objects can be transferred from each node to each other node.
 			workers = [train_ground_search.remote(task.number, self.epoch, task) for task in self.available_tasks]
+
+			# Equilibrium check is expensive and can starve actual work. Don't run too often.
 			if self.epoch % 5 == 0: self.eq_checks.append(in_equil.remote(self.epoch, self.available_tasks))
 			ready_refs, self.eq_checks = ray.wait(self.eq_checks, num_returns=1, timeout=0.0)
-			for obj in ready_refs: 
-				if ray.get(obj): self.cont = False
+			# Stop iterating if any equilibrium checks passed.
+			if any(ray.get(obj) for obj in ready_refs): self.cont = False
+
 			updated_tasks = ray.get(workers)
+			self.tasks = [task for task, _ in updated_tasks]
+			meta_info = [meta for _, meta in updated_tasks]
 			
 			self.epoch += 1
 @ray.remote(num_cpus=1)

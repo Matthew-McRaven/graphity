@@ -54,6 +54,7 @@ def create_task(index):
 		trajectories=1)
 	)
 	return dist.gather()[0]
+	
 @ray.remote
 class controller:
 	def __init__(self, task_count):
@@ -62,12 +63,16 @@ class controller:
 		self.epoch = 0
 		self.eq_checks = []
 		self.cont = True
+		self.resume_state = task_count * [None]
 
 	def run(self):
 		while self.cont:
 			# Launch eq check and workers before doing join's on either. This helps prevent performance bottlenecks.
 			# Check that objects can be transferred from each node to each other node.
-			workers = [train_ground_search.remote(task.number, self.epoch, task) for task in self.available_tasks]
+			workers = [train_ground_search.remote(
+					task.number, self.epoch, self.resume_state[task.number], task
+				) for task in self.available_tasks
+			]
 
 			# Equilibrium check is expensive and can starve actual work. Don't run too often.
 			if self.epoch % 5 == 0: self.eq_checks.append(in_equil.remote(self.epoch, self.available_tasks))
@@ -77,7 +82,9 @@ class controller:
 
 			updated_tasks = ray.get(workers)
 			self.tasks = [task for task, _ in updated_tasks]
-			meta_info = [meta for _, meta in updated_tasks]
+
+			# Compute where each task should resume on the next epoch.
+			for i,_ in enumerate(self.resume_state): self.resume_state[i] = updated_tasks[i][1]['resume']
 			
 			self.epoch += 1
 @ray.remote(num_cpus=1)
@@ -88,8 +95,7 @@ def in_equil(epoch, task_list):
 	return epoch > 10
 
 @ray.remote(num_cpus=1)
-def train_ground_search(index, epoch, task):
-	print(f"Task {index} on epoch {epoch}!!!!")
+def train_ground_search(index, epoch, start_state, task):
 	def run_single_timestep(engine, timestep):
 		task.sample(task, epoch=engine.state.epoch)
 		engine.state.timestep = timestep
@@ -98,15 +104,19 @@ def train_ground_search(index, epoch, task):
 
 	@trainer.on(Events.EPOCH_STARTED)
 	def reset_environment_state(engine):
-		task.env.reset()
+		task.env.reset(start_state)
 
 	@trainer.on(Events.EPOCH_COMPLETED)
 	def update_agents(engine):
-		pass
+		rewards = len(task.trajectories) * [None]
+		for idx, traj in enumerate(task.trajectories): rewards[idx] = sum(traj.reward_buffer)
+		# TODO: Figure out how to remap rewards in a sane fashion.
+		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(rewards)/len(rewards)).item():07f}. Best was {min(rewards):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
+	ret_state = task.trajectories[0].state_buffer[-1]
 	task.clear_trajectories()
-	return task, {}
+	return task, {"resume":ret_state}
 		
 			
 ctrl = controller.remote(10)

@@ -4,7 +4,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: ray
-  name: graphity-test-job
+  generateName: graphity-test-job-
 spec:
   template:
     spec:
@@ -13,13 +13,13 @@ spec:
         - name: gitlab-reg
       containers:
         - name: ray-head
-          image: registry.gitlab.com/graphity/graphity:v0.3.1.5
+          image: registry.gitlab.com/graphity/graphity:v0.3.1.10
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "-c", "--" ]
           args:
-            - "cd ~ && wget https://raw.githubusercontent.com/ray-project/ray/master/doc/kubernetes/example.py &&
+            - "
               ray start --node-ip-address=$MY_POD_IP --num-cpus=0 --address=$GRAPHITY_HEAD_SERVICE_HOST:$GRAPHITY_HEAD_SERVICE_PORT_REDIS_PRIMARY --object-manager-port=12345 --node-manager-port=12346 &&
-              python3 /graphity/source/anneal/dummy.py"
+              python /graphity/source/anneal/main.py"
           ports:
             - containerPort: 12345 # Ray internal communication.
             - containerPort: 12346 # Ray internal communication.

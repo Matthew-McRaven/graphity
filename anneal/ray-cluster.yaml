@@ -59,7 +59,7 @@ spec:
           medium: Memory
       containers:
         - name: graphity-head
-          image: registry.gitlab.com/graphity/graphity:v0.3.1.2
+          image: registry.gitlab.com/graphity/graphity:v0.3.1.9
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "-c", "--" ]
           args: 
@@ -120,7 +120,7 @@ spec:
           medium: Memory
       containers:
       - name: graphity-worker
-        image: registry.gitlab.com/graphity/graphity:v0.3.1.2
+        image: registry.gitlab.com/graphity/graphity:v0.3.1.9
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c", "--"]
         args:
@@ -146,5 +146,25 @@ spec:
                 resource: requests.cpu
         resources:
           requests:
-            cpu: 2000m
+            cpu: 1000m
             memory: 1Gi
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: graphity-worker
+  namespace: ray
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: graphity-worker
+  minReplicas: 10
+  maxReplicas: 70
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 30

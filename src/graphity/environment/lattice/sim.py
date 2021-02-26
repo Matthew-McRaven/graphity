@@ -4,6 +4,7 @@ import itertools
 import gym, gym.spaces
 import torch
 import numpy as np
+from numpy.random import Generator, PCG64
 
 import graphity.lattice.generate, graphity.graph.utils
 
@@ -66,10 +67,38 @@ class SpinGlassSimulator(gym.Env):
             # corresponding to dims.
             old_state = int(next_state[tuple(dims)])
             changed_sites.append((dims, old_state))
-            next_state[tuple(dims)] = (next_state[tuple(dims)] + toggle)%3 - 1
-
+            #next_state[tuple(dims)] = (next_state[tuple(dims)] + toggle)%3 - 1
+            next_state[tuple(dims)] = (next_state[tuple(dims)])*-1
         # Update self pointer, and score state.
         self.state = next_state
         energy, self.contrib = self.H(self.state, self.contrib, changed_sites)
         return self.state, energy, False, {"contrib":self.contrib}
+
+
+class RejectionSimulator(SpinGlassSimulator):
+    metadata = {}
+    def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False, beta=1):
+        super(RejectionSimulator, self).__init__(H, glass_shape, allow_cuda)
+        self.beta = beta
+        self.rng = Generator(PCG64())
+     
+    # Apply a list of edge toggles to the current state.
+    # Return the state after toggling as well as the reward.
+    def step(self, actions):
+        old_state = self.state
+        old_energy, old_contribs = self.H(self.state, self.contrib, [])
+
+        _, new_energy, done, _ = super(RejectionSimulator, self).step(actions)
+
+        delta_e = new_energy - old_energy
+
+        # Perform metropolis-hastings acceptance.
+        random_number = self.rng.random()
+        to_beat = np.exp(-(self.beta*delta_e))
+        if delta_e > 0 and random_number < to_beat:
+            self.state = old_state
+            self.contrib = old_contribs
+            new_energy = 0
+        
+        return self.state, new_energy, done, {"contrib":self.contrib}
 

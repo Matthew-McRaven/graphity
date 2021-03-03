@@ -29,20 +29,14 @@ def graph_gradient(graph, H, allow_self_loop=False):
 
 def spin_gradient(spins, H, action_count):
     local_spins = spins.clone().detach()
-    grad = torch.zeros((action_count, *local_spins.shape))
+    grad = torch.zeros(*local_spins.shape)
     dims = [range(x) for x in local_spins.shape]
     contrib = H.contribution(local_spins)
     current_energy = H.normalize(contrib.sum())
-    mod = 0
-    for i in range(0, action_count+1):
-        for dim in itertools.product(*dims): 
-            site_val = local_spins[tuple(dim)]
-            if site_val == i: 
-                mod = 1
-                continue
-            local_spins[tuple(dim)] = i
-            new_contrib = H.fast_toggle(local_spins, contrib, (dim, site_val))
-            new_energy = H.normalize(new_contrib.sum())
-            local_spins[tuple(dim)] = site_val
-            grad[(i-mod, *dim)] =  new_energy - current_energy
+    for dim in itertools.product(*dims):
+        site_val = local_spins[tuple(dim)]
+        local_spins[tuple(dim)] *= -1
+        new_energy, new_contrib = H(local_spins, prev_contribs=contrib, changed_sites=[(dim, site_val)])
+        local_spins[tuple(dim)] *= -1
+        grad[tuple(dim)] =  new_energy - current_energy
     return grad

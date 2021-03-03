@@ -7,18 +7,17 @@ import numpy as np
     
 @functools.lru_cache(1000)
 def contribution(spins, J):
-    local_spins = spins.clone()
 
-    contribution = torch.zeros(local_spins.shape, dtype=torch.float32)
+    contribution = torch.zeros(spins.shape, dtype=torch.float32)
     # Unpack size of i,j dimensions, respectively
-    dims = [range(dim) for dim in local_spins.shape]
+    dims = [range(dim) for dim in spins.shape]
 
     # Iterate over cartesian product of all index pairs.
     for site in itertools.product(*dims):
         site = tuple(site)
         # Vectorize computation by computing all (l,m) pairs at once.
         # Scalar * 2d tensor * 2d tensor, summed.
-        contribution[site] = (local_spins[site] * J[site] * local_spins).double().sum()
+        contribution[site] = (spins[site] * J[site] * spins).double().sum()
     return contribution
 
 ##########################
@@ -48,16 +47,16 @@ class AbstractSpinGlassHamiltonian():
 
         return ret
 
-    def fast_toggle(self, spins, contribution, site):
+    def fast_toggle(self, spins, c, site):
+        contribution = c.detach().clone()
         self.J(spins.shape)
         # Unpack size of i,j dimensions, respectively
         site_index, old_site_value = site
         slice_list = len(site_index) * [slice(0, None),]
         slice_list.extend([idx for idx in site_index])
-        #print(f"Changed ({changed_i},{changed_j}) from {old_site_value} to {spins[changed_i, changed_j]}")
         # Only place each contribution can change is where it interacted with the changed site.
         # To compute new energy, subtract out the old contribution for each location, and add in the new contribution.
-        contribution += spins * self.J_Mat[tuple(slice_list)] * (spins[tuple(site_index)]-old_site_value)
+        contribution += spins * self.J_Mat[tuple(slice_list)] * 2 * spins[tuple(site_index)]
         # However, the contribution for the change site is entirely hard, so let's just re-compute from scratch.
         contribution[tuple(site_index)] = (spins[tuple(site_index)] * self.J_Mat[tuple(site_index)] * spins).double().sum()
         return contribution

@@ -82,11 +82,5 @@ class beta_sampling_strategy:
         site = torch.tensor(picked[1:]).view(-1)
 
         # Must stack along dim=-1 in order to properly join pairs.
-        actions = torch.cat((site,action+2), dim=-1).to(adj.device)
-        """print("BGD")
-        print(adj)
-        print(grad)
-        print(index, value)
-        print(actions)
-        print()"""
+        actions = torch.cat((site,action), dim=-1).to(adj.device)
         return actions, self.dist.log_prob(value)

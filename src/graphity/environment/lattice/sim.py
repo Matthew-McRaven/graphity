@@ -54,24 +54,21 @@ class SpinGlassSimulator(gym.Env):
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
     def step(self, actions):
-        actions = actions.reshape(-1, len(self.glass_shape)+1)
+        actions = actions.reshape(-1, len(self.glass_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.clone()
         next_state = next_state.requires_grad_(False)
         # For each index in the action list, apply the toggles.
         changed_sites = []
         for action in actions:
-            dims = action[0:-1]
-            toggle = action[-1]
-            # Must coerce to tuple, or the tensor will return the rows
-            # corresponding to dims.
-            old_state = int(next_state[tuple(dims)])
-            changed_sites.append((dims, old_state))
-            #next_state[tuple(dims)] = (next_state[tuple(dims)] + toggle)%3 - 1
-            next_state[tuple(dims)] = (next_state[tuple(dims)])*-1
+            dims = action
+            changed_sites.append((dims, next_state[tuple(dims)]))
+            next_state[tuple(dims)] *= -1
+
         # Update self pointer, and score state.
         self.state = next_state
-        energy, self.contrib = self.H(self.state, self.contrib, changed_sites)
+        energy, self.contrib = self.H(next_state, self.contrib, changed_sites)
+
         return self.state, energy, False, {"contrib":self.contrib}
 
 

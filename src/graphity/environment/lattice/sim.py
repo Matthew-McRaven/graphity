@@ -91,7 +91,7 @@ class RejectionSimulator(SpinGlassSimulator):
 
         # Perform metropolis-hastings acceptance.
         random_number = self.rng.random()
-        to_beat = np.exp(-(self.beta*delta_e))
+        to_beat = np.exp((self.beta*delta_e))
         if delta_e > 0 and random_number < to_beat:
             self.state = old_state
             self.contrib = old_contribs

@@ -50,10 +50,7 @@ class SpinGlassSimulator(gym.Env):
         self.state = self.state.requires_grad_(False)
         self.contrib = None
         return self.state
-        
-    # Apply a list of edge toggles to the current state.
-    # Return the state after toggling as well as the reward.
-    def step(self, actions):
+    def evolve(self, actions):
         actions = actions.reshape(-1, len(self.glass_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.clone()
@@ -64,11 +61,13 @@ class SpinGlassSimulator(gym.Env):
             dims = action
             changed_sites.append((dims, next_state[tuple(dims)]))
             next_state[tuple(dims)] *= -1
+        energy, contrib = self.H(next_state, self.contrib, changed_sites)
+        return next_state, energy, contrib
 
-        # Update self pointer, and score state.
-        self.state = next_state
-        energy, self.contrib = self.H(next_state, self.contrib, changed_sites)
-
+    # Apply a list of edge toggles to the current state.
+    # Return the state after toggling as well as the reward.
+    def step(self, actions):
+        self.state, energy, self.contrib = self.evolve(actions)
         return self.state, energy, False, {"contrib":self.contrib}
 
 
@@ -82,20 +81,22 @@ class RejectionSimulator(SpinGlassSimulator):
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
     def step(self, actions):
-        old_state = self.state
-        old_energy, old_contribs = self.H(self.state, self.contrib, [])
+        old_state, old_contribs = self.state, self.contrib
+        old_energy, _ = self.H(self.state, self.contrib, [])
 
-        _, new_energy, done, _ = super(RejectionSimulator, self).step(actions)
+        new_state, new_energy, new_contribs = self.evolve(actions)
 
         delta_e = new_energy - old_energy
 
         # Perform metropolis-hastings acceptance.
-        random_number = self.rng.random()
-        to_beat = np.exp((self.beta*delta_e))
-        if delta_e > 0 and random_number < to_beat:
-            self.state = old_state
-            self.contrib = old_contribs
-            new_energy = 0
-        
-        return self.state, new_energy, done, {"contrib":self.contrib}
+        to_beat = np.exp(-abs(self.beta*delta_e))
+        if delta_e > 0 and self.rng.random() >= to_beat:
+            new_state = old_state
+            new_contribs = old_contribs
+            new_energy = old_energy
+
+        self.state = new_state
+        self.contrib = new_contribs
+
+        return self.state, new_energy, False, {"contrib":self.contrib}
 

@@ -39,16 +39,19 @@ import graphity.grad
 if __name__ == "__main__":
 	ray.init(address='auto')
 
-def create_task(index):
+def create_task(index, beta, glass_shape):
 	dist = graphity.task.TaskDistribution()
 	H = graphity.environment.lattice.IsingHamiltonian()
-	glass_shape = (8, 8)
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	ss = graphity.strategy.RandomSearch()
-	agent = graphity.agent.mdp.MetropolisAgent(ss, .5)	
+	tg = graphity.strategy.TrueSpinGrad(H, 1)
+	gd = graphity.strategy.gd_sampling_strategy(tg)
+	smgd = graphity.strategy.softmax_sampling_strategy(tg)
+	bgd = graphity.strategy.beta_sampling_strategy(tg)
+	agent = graphity.agent.det.ForwardAgent(ss)	
 	dist.add_task(graphity.task.Definition(graphity.task.GraphTask, 
-		agent=agent, env=graphity.environment.lattice.SpinGlassSimulator(glass_shape=glass_shape, H=H), 
-		episode_length=2*12**3,
+		agent=agent, env=graphity.environment.lattice.RejectionSimulator(glass_shape=glass_shape, H=H, beta=beta), 
+		episode_length=functools.reduce(lambda prod,item: prod *item, glass_shape,1),
 		name = "Lingus!!",
 		number = index,
 		sampler = random_sampler,
@@ -58,15 +61,15 @@ def create_task(index):
 	
 @ray.remote
 class controller:
-	def __init__(self, task_count, finalizers=[]):
+	def __init__(self, task_count, beta, glass_shape, finalizers=[]):
 		self.task_count = task_count
-		self.available_tasks = [create_task(idx) for idx in range(task_count)]
+		self.available_tasks = [create_task(idx, beta, glass_shape) for idx in range(task_count)]
 		self.epoch = 0
 		self.eq_checks = []
-		self.epoch_stop_at = 2000
-		self.epoch_additional = 4
+		self.epoch_stop_at = 200
+		self.epoch_additional = 40
 		self.resume_state = task_count * [None]
-		self.energies = task_count * [[]]
+		self.energies =[[] for i in range(task_count)]
 		self.logs = {task:{"trajectories":[]} for task in range(task_count)}
 		self.finalizers = finalizers
 
@@ -153,20 +156,45 @@ def magnitization(eq_epoch, ending_epoch, task_logs):
 			mag = buffer.state_buffer[-1].float().mean()
 			print(mag)
 
-def specific_heat(eq_epoch, ending_epoch, task_logs):
-	summed_mag = 0
-	for task in task_logs:
-		task = task_logs[task]
-		energies = []
-		for buffers in task['trajectories'][eq_epoch:]:
-			for buffer in buffers:
-				energies.extend(buffer.reward_buffer[:])
-		summed = functools.reduce(lambda sum, item: sum + item, energies,0)
-		squared_sums = functools.reduce(lambda sum, item: sum + item**2, energies,0)
-		specific_heat = squared_sums/len(energies) - (summed/len(energies))**2
-		print(f"C = {specific_heat}")
-		
-ctrl = controller.remote(10, [end_computation, magnitization, specific_heat])
+class specific_heat:
+	def __init__(self, beta, glass_shape):
+		self.beta = beta
+		self.glass_shape = glass_shape
 
-ray.get(ctrl.run.remote())
+	def var(self, batch):
+		summed = functools.reduce(lambda sum, item: sum + item, batch, 0)
+		squared_sums = functools.reduce(lambda sum, item: sum + item**2, batch,0)
+		return squared_sums/len(batch) - (summed/len(batch))**2
+		
+	def __call__(self, eq_epoch, ending_epoch, task_logs):
+		num_spins = functools.reduce(lambda prod,item: prod *item, self.glass_shape,1)
+		for task in task_logs:
+			task = task_logs[task]
+			energies = []
+
+			for buffers in task['trajectories'][eq_epoch:]:
+				for buffer in buffers:
+					energies.extend(buffer.reward_buffer[:])
+			#print(energies)
+			variances = []
+			batches = [np.random.choice(energies, len(energies)) for i in range(100)]
+			
+			# Compute per-batch variance
+			for batch in batches:
+				variance = self.var(batch)
+				variance *= self.beta**2 / num_spins
+				variances.append(variance)
+
+			# SQRT(AVG(C^2)-AVG(C)^2)
+			# Compute variance of variances, which is specific hea	
+			specific_heat = self.var(energies) * self.beta**2 / num_spins
+			error_c = self.var(variances)**.5
+			# See section 3.4 of online book
+			print(f"C = {specific_heat} ± {error_c}")
+if __name__ == "__main__":
+	glass_shape = (10,10)
+	beta = 5#1/2.2275
+	ctrl = controller.remote(3, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
+
+	ray.get(ctrl.run.remote())
 

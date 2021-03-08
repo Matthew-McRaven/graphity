@@ -56,7 +56,7 @@ class AbstractSpinGlassHamiltonian():
         slice_list.extend([idx for idx in site_index])
         # Only place each contribution can change is where it interacted with the changed site.
         # To compute new energy, subtract out the old contribution for each location, and add in the new contribution.
-        contribution += spins * self.J_Mat[tuple(slice_list)] * 2 * spins[tuple(site_index)]
+        contribution += spins * self.J_Mat[tuple(slice_list)] * 2*old_site_value
         # However, the contribution for the change site is entirely hard, so let's just re-compute from scratch.
         contribution[tuple(site_index)] = (spins[tuple(site_index)] * self.J_Mat[tuple(site_index)] * spins).double().sum()
         return contribution

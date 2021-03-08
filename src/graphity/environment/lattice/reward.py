@@ -118,7 +118,7 @@ class IsingHamiltonian(AbstractSpinGlassHamiltonian):
                     self.J_Mat[i,j, i-1,j] = 1.
                     self.J_Mat[i,j, i,j-1] = 1.
                     self.J_Mat[i,j, (i+1)%dim_i,j] = 1.
-                    self.J_Mat[i,j, i,(j+1)%dim_i] = 1.
+                    self.J_Mat[i,j, i,(j+1)%dim_j] = 1.
             elif len(size) == 3:
                 dim_i, dim_j, dim_k = size
                 self.J_Mat = torch.zeros((dim_i, dim_j, dim_k, dim_i, dim_j, dim_k), dtype=torch.float32)

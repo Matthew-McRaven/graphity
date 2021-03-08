@@ -103,7 +103,7 @@ class controller:
 		return self.epoch < self.epoch_stop_at + self.epoch_additional
 
 @ray.remote(num_cpus=1)
-def in_equilibrium(epoch, energy_list, lookback_length, eps=2):
+def in_equilibrium(epoch, energy_list, lookback_length, eps=5):
 	num_tasks = len(energy_list)
 	num_epochs = len(energy_list[0])
 	if  num_epochs < lookback_length: return False
@@ -111,10 +111,11 @@ def in_equilibrium(epoch, energy_list, lookback_length, eps=2):
 		accumulator = 0
 		for i,j in itertools.product(range(num_tasks), range(num_tasks)):
 			if j<i: continue
-			i, j = energy_list[i][-(i+1):], energy_list[j][-(j+1):]
-			accumulator += functools.reduce(lambda sum,item: sum + abs(item[0]-item[1]), zip(i,j),0)
-		print(accumulator)
-		return accumulator < eps * lookback_length * (.5*num_tasks**2)
+			i, j = energy_list[i][-(lookback_length+1):], energy_list[j][-(lookback_length+1):]
+			accumulator += functools.reduce(lambda sum,item: sum + abs(item[0].double()-item[1].double()), zip(i,j),0)
+		to_beat =  eps * lookback_length * (.5*num_tasks**2)
+		print(accumulator, to_beat)
+		return accumulator < to_beat
 		
 
 @ray.remote(num_cpus=1)

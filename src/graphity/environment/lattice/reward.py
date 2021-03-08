@@ -42,9 +42,8 @@ class AbstractSpinGlassHamiltonian():
         return energy, contribs
 
     def normalize(self, energy):
-        ret =  -energy
+        ret =  -.5 * energy
         assert not torch.isinf(ret).any()
-
         return ret
 
     def fast_toggle(self, spins, c, site):

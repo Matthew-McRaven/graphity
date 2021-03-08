@@ -76,11 +76,11 @@ class AbstractSpinGlassHamiltonian():
         # We can update the equation piecewise.
         else:
             contribs = prev_contribs
-            #real, _ = self.compute_glass(spins, self.J_Mat)
+            # TODO: Disable when confident in energy computation.
+            real, _ = self.compute_glass(spins, self.J_Mat)
             for site in changed_sites:
                 contribs = self.fast_toggle(spins, contribs, site)
             energy = contribs.sum()
-            
             
             
             # Energy is negative (Dr. Betre 20200105), but we need +'ve number to take logs.
@@ -95,7 +95,7 @@ class AbstractSpinGlassHamiltonian():
             
             #print()
             #assert (_ == contribs).all()
-            #assert abs(real - energy) < 1
+            assert abs(real - energy) < 1
             return energy, contribs
 
 # Nearest-neighbor interactions only.

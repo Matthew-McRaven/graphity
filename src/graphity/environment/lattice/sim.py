@@ -6,15 +6,8 @@ import torch
 import numpy as np
 from numpy.random import Generator, PCG64
 
-import graphity.lattice.generate, graphity.graph.utils
-
+from .generate import *
 from .reward import IsingHamiltonian
-"""
-A simulator for quantum graphity.
-Accepts a hamiltonian H, as well a default graph size.
-You may enable or disable self loops.
-"""
-
 
 """
 A simulator for quantum spin glasses.
@@ -50,14 +43,15 @@ class SpinGlassSimulator(gym.Env):
         self.state = self.state.requires_grad_(False)
         self.contrib = None
         return self.state
-    def evolve(self, actions):
-        actions = actions.reshape(-1, len(self.glass_shape))
+
+    def evolve(self, sites):
+        sites = sites.reshape(-1, len(self.glass_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.clone()
         next_state = next_state.requires_grad_(False)
         # For each index in the action list, apply the toggles.
         changed_sites = []
-        for action in actions:
+        for site in sites:
             dims = action
             changed_sites.append((dims, next_state[tuple(dims)]))
             next_state[tuple(dims)] *= -1
@@ -66,30 +60,29 @@ class SpinGlassSimulator(gym.Env):
 
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
-    def step(self, actions):
-        self.state, energy, self.contrib = self.evolve(actions)
+    def step(self, sites, beta):
+        self.state, energy, self.contrib = self.evolve(sites)
         return self.state, energy, False, {"contrib":self.contrib}
 
 
 class RejectionSimulator(SpinGlassSimulator):
     metadata = {}
-    def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False, beta=1):
+    def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False):
         super(RejectionSimulator, self).__init__(H, glass_shape, allow_cuda)
-        self.beta = beta
         self.rng = Generator(PCG64())
      
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
-    def step(self, actions):
+    def step(self, sites, beta):
         old_state, old_contribs = self.state, self.contrib
         old_energy, _ = self.H(self.state, self.contrib, [])
 
-        new_state, new_energy, new_contribs = self.evolve(actions)
+        new_state, new_energy, new_contribs = self.evolve(sites)
 
         delta_e = new_energy - old_energy
 
         # Perform metropolis-hastings acceptance.
-        to_beat = np.exp(-abs(self.beta*delta_e))
+        to_beat = np.exp(-abs(beta*delta_e))
         if delta_e > 0 and self.rng.random() >= to_beat:
             new_state = old_state
             new_contribs = old_contribs

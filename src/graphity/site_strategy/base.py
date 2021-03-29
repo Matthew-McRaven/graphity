@@ -9,9 +9,9 @@ class RandomSearch:
         self.toggles = toggles
     def __call__(self, adj):
         h = adj.shape[-1]
-        low = len(adj.shape)*(0,)
-        high = adj.shape
-        randoms = self.rng.integers(low=low, high=high, size=[len(adj.shape)])
+        low = (*len(adj.shape)*(0,),2)
+        high = (*adj.shape,3)
+        randoms = self.rng.integers(low=low, high=high, size=[len(adj.shape)+1])
         # We want to work on tensors, not numpy objects. Respect the device from which the input came.
         action = torch.tensor(randoms, device=adj.device)
         # Okay, this term should be more complex, because it ignores the probability delta_e > 0.

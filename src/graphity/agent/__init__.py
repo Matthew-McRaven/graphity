@@ -1,5 +1,5 @@
-__all__ = ['det', 'mdp', 'pg']
-def add_agent_attr(policy_based=False, allow_callback=False, allow_update=False):
+__all__ = ['det', 'pg']
+def add_agent_attr(policy_based=False, allow_update=False):
     def deco(cls):
         attrs = {}
         attrs['policy_based'] = policy_based

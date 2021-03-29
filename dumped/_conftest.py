@@ -16,13 +16,6 @@ def Hypers():
 
 @pytest.fixture(params=[6, 8])
 def GraphSimulator(request):
-    H = graphity.environment.biqg.LogASquaredD(2)
-    env = None#graphity.environment.biqg.GraphSimulator(graph_size=request.param, H=H)
-    return env
-
-@pytest.fixture(params=[6, 8])
-def IsingGlassSimulator(request):
-    H = graphity.environment.lattice.IsingHamiltonian() 
-    n = request.param
-    env = None
+    H = graphity.environment.reward.LogASquaredD(2)
+    env = graphity.environment.sim.Simulator(graph_size=request.param, H=H)
     return env

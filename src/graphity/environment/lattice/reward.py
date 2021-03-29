@@ -5,9 +5,8 @@ import torch
 import torch.distributions
 import numpy as np
     
-@functools.lru_cache(1000)
-def contribution(spins, J):
 
+def contribution(spins, J):
     contribution = torch.zeros(spins.shape, dtype=torch.float32)
     # Unpack size of i,j dimensions, respectively
     dims = [range(dim) for dim in spins.shape]
@@ -17,7 +16,7 @@ def contribution(spins, J):
         site = tuple(site)
         # Vectorize computation by computing all (l,m) pairs at once.
         # Scalar * 2d tensor * 2d tensor, summed.
-        contribution[site] = (spins[site] * J[site] * spins).double().sum()
+        contribution[site] = -.5*(spins[site] * J[site] * spins).double().sum()
     return contribution
 
 ##########################
@@ -31,20 +30,10 @@ class AbstractSpinGlassHamiltonian():
 
 
     def compute_glass(self, spins, J):
-        contribs = contribution(spins, J)      
+        contribs = contribution(spins, J)   
         energy = contribs.sum()
 
-        # Energy is negative (Dr. Betre 20200105), but we need +'ve number to take logs.
-        # And we need a -'ve number to minimize (for gradient descent).
-        # So, in order to turn this number back into a "real" energy, compute
-        #   -e^|energy|
-        energy = self.normalize(energy)
         return energy, contribs
-
-    def normalize(self, energy):
-        ret =  -.5 * energy
-        assert not torch.isinf(ret).any()
-        return ret
 
     def fast_toggle(self, spins, c, site):
         contribution = c.detach().clone()
@@ -55,9 +44,10 @@ class AbstractSpinGlassHamiltonian():
         slice_list.extend([idx for idx in site_index])
         # Only place each contribution can change is where it interacted with the changed site.
         # To compute new energy, subtract out the old contribution for each location, and add in the new contribution.
-        contribution += spins * self.J_Mat[tuple(slice_list)] * 2*old_site_value
+        contribution -= spins * self.J_Mat[tuple(slice_list)] *old_site_value
         # However, the contribution for the change site is entirely hard, so let's just re-compute from scratch.
-        contribution[tuple(site_index)] = (spins[tuple(site_index)] * self.J_Mat[tuple(site_index)] * spins).double().sum()
+        site = tuple(site_index)
+        contribution[site] = -.5*(spins[site] * self.J_Mat[site] * spins).double().sum()
         return contribution
 
     def contribution(self, spins):
@@ -75,26 +65,14 @@ class AbstractSpinGlassHamiltonian():
         # We can update the equation piecewise.
         else:
             contribs = prev_contribs
-            # TODO: Disable when confident in energy computation.
-            real, _ = self.compute_glass(spins, self.J_Mat)
             for site in changed_sites:
                 contribs = self.fast_toggle(spins, contribs, site)
             energy = contribs.sum()
-            
-            
-            # Energy is negative (Dr. Betre 20200105), but we need +'ve number to take logs.
-            # And we need a -'ve number to minimize (for gradient descent).
-            # So, in order to turn this number back into a "real" energy, compute
-            #   -e^|energy|
-            energy = self.normalize(energy)
 
            # p1 = imat.sum()/(imat.shape[0]*imat.shape[1]) 
             #ent = -(p1 * p1.log() + (1-p1)*(1-p1).log())
             #print(ent)
             
-            #print()
-            #assert (_ == contribs).all()
-            assert abs(real - energy) < 1
             return energy, contribs
 
 # Nearest-neighbor interactions only.

@@ -76,12 +76,11 @@ class BetaILS(IteratedLocalSearch):
     def __call__(self, lattice):
         scored_neighbors = self.score_fn(lattice)
         min, max = torch.min(scored_neighbors.view(-1)), torch.max(scored_neighbors.view(-1))
-        grad = (scored_neighbors - min)/ (max - min)
+        scored_neighbors = (scored_neighbors - min)/ (max - min)
         scored_neighbors = mask_upper(scored_neighbors) if self.mask_triu else scored_neighbors
-
         # Pick a transiiton whose value is closest to the sampled value.
         value = self.dist.sample((1,))
         index = torch.argmin((scored_neighbors-value).abs())
         picked = np.unravel_index(index.item(), scored_neighbors.shape)
-        site = torch.tensor(picked[1:]).view(-1).to(lattice.device)
+        site = torch.tensor(picked[:]).view(-1).to(lattice.device)
         return site, self.dist.log_prob(value)

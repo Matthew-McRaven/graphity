@@ -7,7 +7,7 @@ from numpy.random import Generator, PCG64
 from . import add_agent_attr
 
 # An agent without backtracking.
-@register_pg()
+@add_agent_attr()
 class ForwardAgent(nn.Module):
     def __init__(self, annealing_strategy, site_strategy, beta=1.0):
         # Must initialize torch.nn.Module
@@ -16,11 +16,11 @@ class ForwardAgent(nn.Module):
         self.beta = beta
         self.site_strategy = site_strategy
 
-    def act(self, adj, delta_e):
-        return self.forward(adj, delta_e)
+    def act(self, lattice, delta_e):
+        return self.forward(lattice, delta_e)
 
     # Implement required pytorch interface
-    def forward(self, adj, delta_e):
-        action, lp_action = self.site_strategy(adj, beta)
-        beta, lp_beta = self.annealing_strategy(beta, delta_e)
-        return (action, beta), lp_action + lp_beta
+    def forward(self, lattice, delta_e):
+        site, lp_action = self.site_strategy(lattice)
+        beta, lp_beta = self.annealing_strategy(self.beta, delta_e)
+        return (site, beta), lp_action + lp_beta

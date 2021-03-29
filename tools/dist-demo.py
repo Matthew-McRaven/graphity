@@ -5,16 +5,13 @@ It also shows how to create a task distribution to sample from.
 """
 import torch
 
-import graphity.agent.mdp, graphity.agent.pg, graphity.agent.det
-import graphity.grad
+import graphity.agent.det
 import graphity.environment.lattice
-import graphity.environment.biqg
 import graphity.train
 import graphity.task
 import graphity.train.ground
-import graphity.strategy
+import graphity.site_strategy
 import graphity.train
-import graphity.grad
 # Sample program that demonstrates how to create an agent & environment.
 # Then. train this agent for some number of epochs, determined by our hypers.
 def main():
@@ -37,29 +34,28 @@ def main():
     hypers['env'] = env
     # Stochastic agents
     # Gradient descent agents
-    ss = graphity.strategy.RandomSearch()
-    tg = graphity.strategy.TrueSpinGrad(H, 2)
-    gd = graphity.strategy.gd_sampling_strategy(tg)
-    smgd = graphity.strategy.softmax_sampling_strategy(tg)
-    bgd = graphity.strategy.beta_sampling_strategy(tg)
+    ss = graphity.site_strategy.RandomSearch()
+    nb = graphity.site_strategy.Score1Neighbors(H)
+    gd = graphity.site_strategy.VanillaILS(nb)
+    smgd = graphity.site_strategy.SoftmaxILS(nb)
+    bgd = graphity.site_strategy.BetaILS(nb)
     agents = []
-    agents.append(("gd", graphity.agent.det.ForwardAgent(gd)))
-    agents.append(("sm", graphity.agent.det.ForwardAgent(smgd)))
-    agents.append(("bgd", graphity.agent.det.ForwardAgent(bgd)))
-    agents.append(("fa", graphity.agent.det.ForwardAgent(ss)))
-    agents.append(("ma", graphity.agent.mdp.MetropolisAgent(ss)))
-    agents.append(("sa", graphity.agent.mdp.SimulatedAnnealingAgent(ss, 2, 4, 1)))
+    agents.append(("gd", graphity.agent.det.ForwardAgent(lambda x,y:(1,0), gd)))
+    agents.append(("sm", graphity.agent.det.ForwardAgent(lambda x,y:(1,0), smgd)))
+    agents.append(("bgd", graphity.agent.det.ForwardAgent(lambda x,y:(1,0), bgd)))
+    agents.append(("fa", graphity.agent.det.ForwardAgent(lambda x,y:(1,0), ss)))
+    #agents.append(("ma", graphity.agent.mdp.MetropolisAgent(ss)))
+    #agents.append(("sa", graphity.agent.mdp.SimulatedAnnealingAgent(ss, 2, 4, 1)))
 
     # Show the NN configuration on the console.
     print(agents)
 
     random_sampler = graphity.task.RandomGlassSampler(glass_shape)
-    graph = graphity.lattice.generate.random_glass(glass_shape)
-    graphity.grad.spin_gradient(graph, H, 2)
+    graph = graphity.environment.lattice.random_glass(glass_shape)
     dist = graphity.task.TaskDistribution()
     # Create a single task definition from which we can sample.
     for (idx, (name, agent)) in enumerate(agents):
-        dist.add_task(graphity.task.Definition(graphity.task.GraphTask, 
+        dist.add_task(graphity.task.Definition(graphity.task.GlassTask, 
             agent=agent, env=hypers['env'], 
             episode_length=hypers['episode_length'],
             name = name,

@@ -43,7 +43,7 @@ def create_task(index, beta, glass_shape):
 	dist = graphity.task.TaskDistribution()
 	H = graphity.environment.lattice.IsingHamiltonian()
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
-	ss = graphity.strategy.RandomSearch()
+	ss = graphity.site_strategy.RandomSearch()
 	tg = graphity.strategy.TrueSpinGrad(H, 1)
 	gd = graphity.strategy.gd_sampling_strategy(tg)
 	smgd = graphity.strategy.softmax_sampling_strategy(tg)

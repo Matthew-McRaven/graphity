@@ -29,20 +29,22 @@ class SpinGlassSimulator(gym.Env):
 
     # Reset the environment to a start state---either random or provided.
     # If the supplied adjacency matrix is not the same size as self.glass_shape, self.glass_shape is updated.
-    def reset(self, start_state=None):
-        if start_state is not None:
+    def reset(self, start=None):
+        if start is not None:
+            start_state = start
             assert isinstance(start_state, torch.Tensor)
             # Require that new graph is the same size as the environment.
             assert start_state.shape == self.glass_shape
+            self.delta_e = None
             self.state = start_state
         else:
             # Otherwise depend on our utils facility to give us a good graph.
-            self.state = graphity.lattice.generate.random_glass(self.glass_shape)
+            self.state, self.delta_e = random_glass(self.glass_shape), None
         # TODO: self.state = graphity.hypers.to_cuda(self.state, self.allow_cuda)
         # Simulation-internal state should not provide gradient feedback to system.
         self.state = self.state.requires_grad_(False)
         self.contrib = None
-        return self.state
+        return self.state, self.delta_e
 
     def evolve(self, sites):
         sites = sites.reshape(-1, len(self.glass_shape))
@@ -52,7 +54,7 @@ class SpinGlassSimulator(gym.Env):
         # For each index in the action list, apply the toggles.
         changed_sites = []
         for site in sites:
-            dims = action
+            dims = site
             changed_sites.append((dims, next_state[tuple(dims)]))
             next_state[tuple(dims)] *= -1
         energy, contrib = self.H(next_state, self.contrib, changed_sites)
@@ -60,9 +62,10 @@ class SpinGlassSimulator(gym.Env):
 
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
-    def step(self, sites, beta):
-        self.state, energy, self.contrib = self.evolve(sites)
-        return self.state, energy, False, {"contrib":self.contrib}
+    def step(self, action):
+        sites, beta = action
+        self.state, self.energy, self.contrib = self.evolve(sites)
+        return self.state, 0, self.energy, False, {"contrib":self.contrib}
 
 
 class RejectionSimulator(SpinGlassSimulator):
@@ -73,7 +76,8 @@ class RejectionSimulator(SpinGlassSimulator):
      
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
-    def step(self, sites, beta):
+    def step(self, action):
+        sites, beta = action
         old_state, old_contribs = self.state, self.contrib
         old_energy, _ = self.H(self.state, self.contrib, [])
 
@@ -88,8 +92,10 @@ class RejectionSimulator(SpinGlassSimulator):
             new_contribs = old_contribs
             new_energy = old_energy
 
-        self.state = new_state
         self.contrib = new_contribs
+        self.energy = new_energy
+        self.state = new_state
+        
 
-        return self.state, new_energy, False, {"contrib":self.contrib}
+        return self.state, delta_e, new_energy, False, {"contrib":self.contrib}
 

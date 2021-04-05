@@ -8,7 +8,6 @@ class RandomSearch:
         self.rng = Generator(PCG64())
         self.toggles = toggles
     def __call__(self, adj):
-        h = adj.shape[-1]
         low = len(adj.shape)*(0,)
         high = adj.shape
         randoms = self.rng.integers(low=low, high=high, size=[len(adj.shape)])

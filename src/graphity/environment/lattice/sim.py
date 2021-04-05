@@ -54,9 +54,8 @@ class SpinGlassSimulator(gym.Env):
         # For each index in the action list, apply the toggles.
         changed_sites = []
         for site in sites:
-            dims = site
-            changed_sites.append((dims, next_state[tuple(dims)]))
-            next_state[tuple(dims)] *= -1
+            changed_sites.append((site, next_state[tuple(site)]))
+            next_state[tuple(site)] *= -1
         energy, contrib = self.H(next_state, self.contrib, changed_sites)
         return next_state, energy, contrib
 
@@ -79,6 +78,8 @@ class RejectionSimulator(SpinGlassSimulator):
     def step(self, action):
         sites, beta = action
         old_state, old_contribs = self.state, self.contrib
+        # Pair of check that ensures that old contribs are not mngled by H.
+        #backup = old_contribs.detach().clone() if self.contrib is not None else None
         old_energy, _ = self.H(self.state, self.contrib, [])
 
         new_state, new_energy, new_contribs = self.evolve(sites)
@@ -90,6 +91,7 @@ class RejectionSimulator(SpinGlassSimulator):
         if delta_e > 0 and self.rng.random() >= to_beat:
             new_state = old_state
             new_contribs = old_contribs
+            #assert (new_contribs == backup).all() if backup is not None else True
             new_energy = old_energy
 
         self.contrib = new_contribs

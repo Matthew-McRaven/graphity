@@ -61,7 +61,7 @@ class controller:
 		self.available_tasks = [create_task(idx, beta, glass_shape) for idx in range(task_count)]
 		self.epoch = 0
 		self.eq_checks = []
-		self.epoch_stop_at = 100
+		self.epoch_stop_at = 1000
 		self.epoch_additional = 40
 		self.resume_state =  [None for i in range(task_count)]
 		self.energies =[[] for i in range(task_count)]
@@ -152,7 +152,7 @@ def magnitization(eq_epoch, ending_epoch, task_logs):
 		mag = 0
 		for buffer in task['trajectories'][-1]:
 			state = buffer[-1].state
-			print(state)
+			#print(state)
 			mag = state.float().mean()
 			print(mag)
 
@@ -192,7 +192,7 @@ class specific_heat:
 			print(f"C = {specific_heat} ± {error_c}")
 if __name__ == "__main__":
 	glass_shape = (8,8,8)
-	beta = 1#1/2.2275
+	beta = 2.2#1/2.2275
 	ctrl = controller.remote(10, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
 
 	ray.get(ctrl.run.remote())

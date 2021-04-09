@@ -29,9 +29,6 @@ def sample_trajectories(task, epoch=None):
 
             action, logprob_action = task.agent.act(state, delta_e)
             episode.log_action(t, action, logprob_action)
-            if task.agent.policy_based: episode.log_policy(t, task.agent.policy_latest)
-            # If our action is a tensor, it needs to be migrated to the CPU for the simulator.
-            if torch.is_tensor(action): action = action.view(-1).detach().cpu().numpy()
             state, delta_e, reward, done, extra_info = task.env.step(action)
             
             episode.log_extra_info(t, extra_info)

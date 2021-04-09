@@ -31,8 +31,8 @@ class SpinGlassSimulator(gym.Env):
     # If the supplied adjacency matrix is not the same size as self.glass_shape, self.glass_shape is updated.
     def reset(self, start=None):
         if start is not None:
-            start_state = start
-            assert isinstance(start_state, torch.Tensor)
+            assert isinstance(start, torch.Tensor)
+            start_state = start.detach().clone()
             # Require that new graph is the same size as the environment.
             assert start_state.shape == self.glass_shape
             self.delta_e = None
@@ -49,8 +49,8 @@ class SpinGlassSimulator(gym.Env):
     def evolve(self, sites):
         sites = sites.reshape(-1, len(self.glass_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
-        next_state = self.state.clone()
-        next_state = next_state.requires_grad_(False)
+        next_state = self.state.detach().clone()
+        #next_state = next_state.requires_grad_(False)
         # For each index in the action list, apply the toggles.
         changed_sites = []
         for site in sites:

@@ -15,6 +15,7 @@ from torchvision import datasets, transforms
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torchvision.datasets import MNIST
 from torch.distributions import Categorical
+import numpy as np
 from numpy.random import Generator, PCG64
 
 import ignite.engine
@@ -23,16 +24,14 @@ from ignite.metrics import Accuracy, Loss, accuracy
 from ignite.utils import setup_logger
 
 
-import graphity.agent.mdp, graphity.agent.pg, graphity.agent.det
-import graphity.grad
+import graphity.agent.det
 import graphity.environment.lattice
-import graphity.environment.biqg
 import graphity.train
 import graphity.task
 import graphity.train.ground
-import graphity.strategy
+import graphity.strategy.site
 import graphity.train
-import graphity.grad
+
 # Sample program that demonstrates how to create an agent & environment.
 # Then. train this agent for some number of epochs, determined by our hypers.
 
@@ -43,15 +42,11 @@ def create_task(index, beta, glass_shape):
 	dist = graphity.task.TaskDistribution()
 	H = graphity.environment.lattice.IsingHamiltonian()
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
-	ss = graphity.site_strategy.RandomSearch()
-	tg = graphity.strategy.TrueSpinGrad(H, 1)
-	gd = graphity.strategy.gd_sampling_strategy(tg)
-	smgd = graphity.strategy.softmax_sampling_strategy(tg)
-	bgd = graphity.strategy.beta_sampling_strategy(tg)
-	agent = graphity.agent.det.ForwardAgent(ss)	
-	dist.add_task(graphity.task.Definition(graphity.task.GraphTask, 
-		agent=agent, env=graphity.environment.lattice.RejectionSimulator(glass_shape=glass_shape, H=H, beta=beta), 
-		episode_length=functools.reduce(lambda prod,item: prod *item, glass_shape,1),
+	ss = graphity.strategy.site.RandomSearch()
+	agent = graphity.agent.det.ForwardAgent(lambda x,y:(beta,0), ss)	
+	dist.add_task(graphity.task.Definition(graphity.task.GlassTask, 
+		agent=agent, env=graphity.environment.lattice.RejectionSimulator(glass_shape=glass_shape, H=H), 
+		episode_length=functools.reduce(lambda prod,item: prod*item, glass_shape,2),
 		name = "Lingus!!",
 		number = index,
 		sampler = random_sampler,
@@ -66,9 +61,9 @@ class controller:
 		self.available_tasks = [create_task(idx, beta, glass_shape) for idx in range(task_count)]
 		self.epoch = 0
 		self.eq_checks = []
-		self.epoch_stop_at = 200
+		self.epoch_stop_at = 100
 		self.epoch_additional = 40
-		self.resume_state = task_count * [None]
+		self.resume_state =  [None for i in range(task_count)]
 		self.energies =[[] for i in range(task_count)]
 		self.logs = {task:{"trajectories":[]} for task in range(task_count)}
 		self.finalizers = finalizers
@@ -92,7 +87,7 @@ class controller:
 			self.tasks = [task for task, _ in updated_tasks]
 			for task in self.tasks: 
 				self.logs[task.number]['trajectories'].append(task.trajectories)
-				self.energies[task.number].append(task.trajectories[0].reward_buffer[-1])
+				self.energies[task.number].append(task.trajectories[0][-1].reward)
 			# Compute where each task should resume on the next epoch.
 			for i,_ in enumerate(self.resume_state): self.resume_state[i] = updated_tasks[i][1]['resume']
 			
@@ -103,7 +98,7 @@ class controller:
 		return self.epoch < self.epoch_stop_at + self.epoch_additional
 
 @ray.remote(num_cpus=1)
-def in_equilibrium(epoch, energy_list, lookback_length, eps=5):
+def in_equilibrium(epoch, energy_list, lookback_length, eps=2):
 	num_tasks = len(energy_list)
 	num_epochs = len(energy_list[0])
 	if  num_epochs < lookback_length: return False
@@ -132,13 +127,16 @@ def train_ground_search(index, epoch, start_state, task):
 
 	@trainer.on(Events.EPOCH_COMPLETED)
 	def update_agents(engine):
-		rewards = len(task.trajectories) * [None]
-		for idx, traj in enumerate(task.trajectories): rewards[idx] = sum(traj.reward_buffer)
+		trajectories = torch.zeros((len(task.trajectories),len(task.trajectories[0])))
+		for idx, traj in enumerate(task.trajectories): 	
+			trajectories[idx] = torch.tensor([task.trajectories[idx][i_idx].reward for i_idx in range(len(task.trajectories[idx]))])
+
+		trajectories = trajectories.view(-1)
 		# TODO: Figure out how to remap rewards in a sane fashion.
-		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(rewards)/len(rewards)).item():07f}. Best was {min(traj.reward_buffer):03f}.")
+		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
-	ret_state = task.trajectories[0].state_buffer[-1]
+	ret_state = task.trajectories[0][-1].state
 	return task, {"resume":ret_state}
 		
 def end_computation(eq_epoch, ending_epoch, logs):
@@ -153,8 +151,9 @@ def magnitization(eq_epoch, ending_epoch, task_logs):
 		task = task_logs[task]
 		mag = 0
 		for buffer in task['trajectories'][-1]:
-			print(buffer.state_buffer[-1])
-			mag = buffer.state_buffer[-1].float().mean()
+			state = buffer[-1].state
+			print(state)
+			mag = state.float().mean()
 			print(mag)
 
 class specific_heat:
@@ -171,13 +170,12 @@ class specific_heat:
 		num_spins = functools.reduce(lambda prod,item: prod *item, self.glass_shape,1)
 		for task in task_logs:
 			task = task_logs[task]
-			energies = []
+			energies, variances = [], []
 
 			for buffers in task['trajectories'][eq_epoch:]:
 				for buffer in buffers:
-					energies.extend(buffer.reward_buffer[:])
-			#print(energies)
-			variances = []
+					energies.extend([buffer[idx].reward for idx in range(len(buffer))])	
+					
 			batches = [np.random.choice(energies, len(energies)) for i in range(100)]
 			
 			# Compute per-batch variance
@@ -193,9 +191,9 @@ class specific_heat:
 			# See section 3.4 of online book
 			print(f"C = {specific_heat} ± {error_c}")
 if __name__ == "__main__":
-	glass_shape = (10,10)
-	beta = 5#1/2.2275
-	ctrl = controller.remote(3, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
+	glass_shape = (8,8,8)
+	beta = 1#1/2.2275
+	ctrl = controller.remote(10, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
 
 	ray.get(ctrl.run.remote())
 

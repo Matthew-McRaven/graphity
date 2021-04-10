@@ -5,10 +5,6 @@ import numpy.random
 import torch
 import graphity.environment.lattice
 
-class SampleType(enum.Enum):
-    Adjacency = enum.auto()
-    Random = enum.auto()
-
 # Randomly generates adjacency matricies when sampled.
 # Doesn't care about checkpointing
 class RandomGlassSampler:
@@ -20,12 +16,7 @@ class RandomGlassSampler:
             self.rng = numpy.random.Generator(self.bit_gen)
         else:
             self.rng = None
+            
     def sample(self, **kwargs):
         self.state = graphity.environment.lattice.random_glass(self.glass_shape, rng=self.rng)
         return self.state
-
-
-    def checkpoint(self, *args):
-        pass
-    def clear_chekpoint(self):
-        pass

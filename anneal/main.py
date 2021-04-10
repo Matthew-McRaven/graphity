@@ -39,20 +39,17 @@ if __name__ == "__main__":
 	ray.init(address='auto')
 
 def create_task(index, beta, glass_shape):
-	dist = graphity.task.TaskDistribution()
 	H = graphity.environment.lattice.IsingHamiltonian()
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	ss = graphity.strategy.site.RandomSearch()
 	agent = graphity.agent.det.ForwardAgent(lambda x,y:(beta,0), ss)	
-	dist.add_task(graphity.task.Definition(graphity.task.GlassTask, 
+	return graphity.task.GlassTask(
 		agent=agent, env=graphity.environment.lattice.RejectionSimulator(glass_shape=glass_shape, H=H), 
 		episode_length=functools.reduce(lambda prod,item: prod*item, glass_shape,2),
 		name = "Lingus!!",
 		number = index,
 		sampler = random_sampler,
 		trajectories=1)
-	)
-	return dist.gather()[0]
 	
 @ray.remote
 class controller:
@@ -61,7 +58,7 @@ class controller:
 		self.available_tasks = [create_task(idx, beta, glass_shape) for idx in range(task_count)]
 		self.epoch = 0
 		self.eq_checks = []
-		self.forever = 20000
+		self.forever = 2000
 		self.resume_state =  [None for i in range(task_count)]
 		self.outer_window_size = 40
 		self.inner_window_size = 10
@@ -117,14 +114,16 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	for i,j in itertools.product(range(num_tasks), range(num_tasks)):
 		wni = torch.tensor(energy_list[i][-(inner_window_size+1):])
 		#print(wni)
-		var_wni = var(wni.view(-1))
+		var_wni[i] = var(wni.view(-1))
 		woj = torch.tensor(energy_list[j][:inner_window_size])
 		cm[i,j] = (wni.float().mean()-woj.float().mean())
 	var_cm = var(cm.view(-1))
-	svar_cm = var_cm/num_tasks**2
-	svar_wni = var_wni / num_tasks
+	svar_cm = var_cm / num_tasks ** 2
+	svar_wni = var_wni.mean() / num_tasks
+	print(cm)
+	print(var_wni)
 	print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")
-	cond = abs(svar_cm - svar_wni) < 1
+	cond = svar_cm < svar_wni
 	if cond: print("!!!!!!\nI eq'ed\n!!!!!!")
 	return cond
 		
@@ -132,7 +131,7 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 @ray.remote(num_cpus=1)
 def train_ground_search(index, epoch, start_state, task):
 	def run_single_timestep(engine, timestep):
-		task.sample(task, epoch=engine.state.epoch)
+		task.sample(task, start_states = [start_state], epoch=engine.state.epoch)
 		engine.state.timestep = timestep
 
 	trainer = ignite.engine.Engine(run_single_timestep)
@@ -198,9 +197,9 @@ class specific_heat:
 			# See section 3.4 of online book
 			print(f"C = {specific_heat} ± {error_c}")
 if __name__ == "__main__":
-	glass_shape = (10,10)
-	beta = 10#1/2.2275
-	ctrl = controller.remote(10, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
+	glass_shape = (20, 20)
+	beta = .9
+	ctrl = controller.remote(6, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
 
 	ray.get(ctrl.run.remote())
 

@@ -10,13 +10,12 @@ import graphity.replay
 # will need to refer to our parent class by relative path.
 
 # Methods to fill a task's sequential replay buffer.
-def sample_trajectories(task, epoch=None):
+def sample_trajectories(task, start_states=None, epoch=None):
     task.clear_trajectories()
     task.init_env()
-
+    if start_states is None: start_states = [None for i in range (task.trajectory_count)]
     for i in range(task.trajectory_count):
-        start=task.sampler.sample(epoch=epoch)
-        state, delta_e = task.env.reset(start)
+        state, delta_e = task.env.reset(start_states[i])
         state = graphity.utils.torchize(state, task.device) # type: ignore
         episode = task.replay_ctor(task.env.observation_space, 
             task.env.action_space, task.episode_length, 
@@ -82,11 +81,3 @@ class ContinuousControlTask(Task):
     @episode_length.setter
     def episode_length(self, value):
         self._episode_length = value
-
-# Example class that allows us to run gym tasks with no extra effort.
-class ContinuousGymTask(ContinuousControlTask):
-    def __init__(self, **kwargs):
-        super(ContinuousGymTask, self).__init__(**kwargs)
-    def init_env(self):
-        # Most gym environment need no extra init'ing
-        pass

@@ -58,7 +58,7 @@ class controller:
 		self.available_tasks = [create_task(idx, beta, glass_shape) for idx in range(task_count)]
 		self.epoch = 0
 		self.eq_checks = []
-		self.forever = 2000
+		self.forever = 1000
 		self.resume_state =  [None for i in range(task_count)]
 		self.outer_window_size = 40
 		self.inner_window_size = 10
@@ -120,8 +120,6 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	var_cm = var(cm.view(-1))
 	svar_cm = var_cm / num_tasks ** 2
 	svar_wni = var_wni.mean() / num_tasks
-	print(cm)
-	print(var_wni)
 	print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")
 	cond = svar_cm < svar_wni
 	if cond: print("!!!!!!\nI eq'ed\n!!!!!!")
@@ -148,7 +146,7 @@ def train_ground_search(index, epoch, start_state, task):
 
 		trajectories = trajectories.view(-1)
 		# TODO: Figure out how to remap rewards in a sane fashion.
-		#print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
+		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
 	ret_state = task.trajectories[0][-1].state

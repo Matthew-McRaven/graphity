@@ -76,7 +76,7 @@ class controller:
 			]
 
 			# Equilibrium check is expensive and can starve actual work. Don't run too often.
-			if self.epoch % 20 == 0 and len(self.sliding_window[0]) >= self.outer_window_size: 
+			if self.epoch % self.inner_window_size == 0 and len(self.sliding_window[0]) >= self.outer_window_size: 
 				self.eq_checks.append(in_equilibrium.remote(self.epoch, self.energy_list, self.inner_window_size))
 			ready_refs, self.eq_checks = ray.wait(self.eq_checks, num_returns=1, timeout=0.0)
 			# Stop iterating if any equilibrium checks passed.
@@ -86,7 +86,7 @@ class controller:
 			self.tasks = [task for task, _ in updated_tasks]
 			for task in self.tasks: 
 				self.sliding_window[task.number].append(task.trajectories)
-				self.energy_list[task.number].append(task.trajectories[0][-1].reward)
+				self.energy_list[task.number].append(task.trajectories[0].reward_buffer[-1])
 				if len(self.sliding_window[task.number]) > self.outer_window_size:
 					self.sliding_window[task.number].pop(0)
 					self.energy_list[task.number].pop(0)
@@ -140,16 +140,16 @@ def train_ground_search(index, epoch, start_state, task):
 
 	@trainer.on(Events.EPOCH_COMPLETED)
 	def update_agents(engine):
-		trajectories = torch.zeros((len(task.trajectories),len(task.trajectories[0])))
+		trajectories = torch.zeros((len(task.trajectories), len(task.trajectories[0])))
 		for idx, traj in enumerate(task.trajectories): 	
-			trajectories[idx] = torch.tensor([task.trajectories[idx][i_idx].reward for i_idx in range(len(task.trajectories[idx]))])
+			trajectories[idx] = torch.tensor(task.trajectories[idx].reward_buffer)
 
 		trajectories = trajectories.view(-1)
 		# TODO: Figure out how to remap rewards in a sane fashion.
 		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
-	ret_state = task.trajectories[0][-1].state
+	ret_state = task.trajectories[0].state_buffer[-1]
 	return task, {"resume":ret_state}
 		
 def end_computation(eq_epoch, ending_epoch, sliding_window):
@@ -160,7 +160,7 @@ def magnitization(eq_epoch, ending_epoch, sliding_window):
 	for idx, task in enumerate(sliding_window):
 		mag = 0
 		for buffer in sliding_window[idx][-1]:
-			state = buffer[-1].state
+			state = buffer.state_buffer[-1]
 			#print(state)
 			mag = state.float().mean()
 			print(mag)
@@ -178,7 +178,7 @@ class specific_heat:
 			energies, variances = [], []
 			for buffers in task:
 				for buffer in buffers:
-					energies.extend([buffer[idx].reward for idx in range(len(buffer))])	
+					energies.extend([buffer.reward_buffer[idx] for idx in range(len(buffer))])	
 
 			batches = [np.random.choice(energies, len(energies)) for i in range(100)]
 			
@@ -196,8 +196,9 @@ class specific_heat:
 			print(f"C = {specific_heat} ± {error_c}")
 if __name__ == "__main__":
 	glass_shape = (20, 20)
-	beta = .9
+	beta = 2.9
 	ctrl = controller.remote(6, beta, glass_shape, [end_computation, magnitization, specific_heat(beta, glass_shape)])
 
 	ray.get(ctrl.run.remote())
+	print(f"beta = {beta}")
 

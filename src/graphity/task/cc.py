@@ -25,14 +25,13 @@ def sample_trajectories(task, start_states=None, epoch=None):
         for t in range(task.episode_length):
             
             episode.log_state(t, state)
-
             action, logprob_action = task.agent.act(state, delta_e)
-            episode.log_action(t, action, logprob_action)
-            state, delta_e, reward, done, extra_info = task.env.step(action)
-            
+            new_state, delta_e, reward, done, extra_info = task.env.step(action)
+            delta_state = (new_state == state)
+            episode.log_action(t, action, logprob_action, delta_state.all())
             episode.log_extra_info(t, extra_info)
 
-            state = graphity.utils.torchize(state, task.device)
+            state = graphity.utils.torchize(new_state, task.device)
             # Don't copy reward in to tensor if it already is one; pytorch gets mad.
             if torch.is_tensor(reward): reward = reward.to(task.device) # type: ignore
             else: reward = torch.tensor(reward).to(task.device) # type: ignore

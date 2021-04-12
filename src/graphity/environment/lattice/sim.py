@@ -43,7 +43,8 @@ class SpinGlassSimulator(gym.Env):
         # TODO: self.state = graphity.hypers.to_cuda(self.state, self.allow_cuda)
         # Simulation-internal state should not provide gradient feedback to system.
         self.state = self.state.requires_grad_(False)
-        self.contrib = None
+        # Compute energy and contribs now so that it is immediately available to step() and evolve().
+        self.energy, self.contrib = self.H(self.state)
         return self.state, self.delta_e
 
     def evolve(self, sites):
@@ -77,10 +78,10 @@ class RejectionSimulator(SpinGlassSimulator):
     # Return the state after toggling as well as the reward.
     def step(self, action):
         sites, beta = action
-        old_state, old_contribs = self.state, self.contrib
+        old_state, old_contribs, old_energy = self.state, self.contrib, self.energy
         # Pair of check that ensures that old contribs are not mngled by H.
         #backup = old_contribs.detach().clone() if self.contrib is not None else None
-        old_energy, _ = self.H(self.state, self.contrib, [])
+        #old_energy, _ = self.H(self.state, self.contrib, [])
 
         new_state, new_energy, new_contribs = self.evolve(sites)
 

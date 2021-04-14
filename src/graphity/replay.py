@@ -28,7 +28,22 @@ class MemoizedEpisode:
         def __getitem__(self, key):
             if self._field == "state":
                 if isinstance(key, slice):
-                    assert False
+                    start, stop, step = key.indices(len(self._array))
+                    if step < 0: assert False
+                    elif start > stop: return []
+                    collected = [idx for idx in range(start, stop, step)]
+                    
+                    # Build state up until state == start
+                    state = self._array[0].state
+                    for memo in self._array[0:start]:
+                        if not memo.applied: continue
+                        state[tuple(memo.action[0])] *= -1  
+                    ret = []
+                    for idx, memo in enumerate(self._array[start:stop]):
+                        idx += start
+                        if memo.applied: state[tuple(memo.action[0])] *= -1 
+                        if idx in collected: ret.append(state)
+                    return ret
                 else:
                     state = self._array[0].state
                     for memo in self._array[0:key]:

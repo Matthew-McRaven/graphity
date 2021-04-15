@@ -27,9 +27,12 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	svar_cm = var_cm / num_tasks ** 2
 	svar_wni = var_wni.mean() / num_tasks
 	print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")
-	cond = svar_cm < svar_wni
+	cond = abs(svar_cm - svar_wni) < .1
+	abort_1 = torch.trace(cm) < 3
+	abort = abort_1 or False
 	if cond: print("!!!!!!\nI eq'ed\n!!!!!!")
-	return cond
+	elif abort: print("!!!!!!\nI aborteded\n!!!!!!")
+	return cond or abort
 
 def run_eq(index, epoch, start_state, task):
 	def run_single_timestep(engine, timestep):

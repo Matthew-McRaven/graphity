@@ -14,9 +14,7 @@ class sync_augmenter:
 	def run(self,):
 		tasks = [graphity.pipelines.create_task(idx, self.beta, self.eq_graphs[0].shape) for idx in range(self.count)]
 		data = [self.augment(self.eq_graphs[idx], task) for idx, task in enumerate(tasks)]
-		ret_data = []
-		for datum in data: ret_data.extend(datum)
-		return ret_data
+		return data
 	def augment(self, start_state, task):
 		states  = []
 		def run_single_timestep(engine, timestep):

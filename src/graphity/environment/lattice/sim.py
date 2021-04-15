@@ -79,8 +79,6 @@ class RejectionSimulator(SpinGlassSimulator):
     def step(self, action):
         sites, beta = action
         old_state, old_contribs, old_energy = self.state, self.contrib, self.energy
-        print(old_contribs)
-        print(old_state)
         # Pair of check that ensures that old contribs are not mngled by H.
         #backup = old_contribs.detach().clone() if self.contrib is not None else None
         #old_energy, _ = self.H(self.state, self.contrib, [])

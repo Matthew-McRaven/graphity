@@ -60,14 +60,14 @@ def run_eq(index, epoch, start_state, task):
 	return task, {"resume":ret_state}
 
 class base_evolver:
-	def __init__(self, tasks, run_fn=run_eq, eq_check_fn=in_equilibrium):
+	def __init__(self, tasks, max_epochs=100, inner_window_size=10, outer_window_size=20, run_fn=run_eq, eq_check_fn=in_equilibrium):
 		task_count = len(tasks)
 		self.tasks = tasks
 		self.epoch = 0
-		self.forever = 10
+		self.forever = max_epochs
 		self.resume_state =  [None for i in range(task_count)]
-		self.outer_window_size = 4
-		self.inner_window_size = 2
+		self.outer_window_size = outer_window_size
+		self.inner_window_size = inner_window_size
 		self.sliding_window = [[] for i in range(task_count)]
 		self.energy_list = [[] for i in range(task_count)]
 
@@ -78,8 +78,8 @@ class base_evolver:
 		return self.epoch < self.forever + self.outer_window_size+1
 
 class sync_evolver(base_evolver):
-	def __init__(self, tasks):
-		super(sync_evolver, self).__init__(tasks)
+	def __init__(self, *args, **kwargs):
+		super(sync_evolver, self).__init__(*args, **kwargs)
 	def run(self):
 		while self.cont():
 			# Perform one
@@ -108,8 +108,8 @@ class distributed_sync_evolver(base_evolver):
 	@ray.remote
 	def remotify(fn, *args, **kwargs):
 		return fn(*args, **kwargs)
-	def __init__(self, tasks):
-		super(distributed_sync_evolver, self).__init__(tasks)
+	def __init__(self, *args, **kwargs):
+		super(distributed_sync_evolver, self).__init__(*args, **kwargs)
 		self.eq_checks = []
 	def run(self):
 		while self.cont():

@@ -26,12 +26,12 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	var_cm = var(cm.view(-1))
 	svar_cm = var_cm / num_tasks ** 2
 	svar_wni = var_wni.mean() / num_tasks
-	print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")
-	cond = abs(svar_cm - svar_wni) < .1
+	#print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")
+	cond = svar_cm <= svar_wni
 	abort_1 = torch.trace(cm) < 3
 	abort = abort_1 or False
-	if cond: print("!!!!!!\nI eq'ed\n!!!!!!")
-	elif abort: print("!!!!!!\nI aborteded\n!!!!!!")
+	if cond: print("I eq'ed")
+	elif abort: print("I aborteded")
 	return cond or abort
 
 def run_eq(index, epoch, start_state, task):
@@ -53,7 +53,7 @@ def run_eq(index, epoch, start_state, task):
 		#print(trajectories)
 		trajectories = trajectories.view(-1)
 		# TODO: Figure out how to remap rewards in a sane fashion.
-		print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
+		#print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
 	ret_state = task.trajectories[0].state_buffer[-1]

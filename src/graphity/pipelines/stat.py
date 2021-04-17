@@ -1,25 +1,27 @@
-def magnitization(eq_epoch, ending_epoch, sliding_window):
-	summed_mag = 0
-	for idx, task in enumerate(sliding_window):
-		mag = 0
-		for buffer in sliding_window[idx][-1]:
-			state = buffer.state_buffer[-1]
-			#print(state)
-			mag = state.float().mean()
-			print(mag)
+import functools
+import numpy as np
+
+from .utils import *
+
+def magnitization(trajectories):
+	mags = []
+	for idx, trajectory in enumerate(trajectories):
+		mag = trajectory[-1]['state'].float().mean()
+		mags.extend([mag])
+	return mags
 
 class specific_heat:
 	def __init__(self, beta, glass_shape):
 		self.beta = beta
 		self.glass_shape = glass_shape
 
-	def __call__(self, eq_epoch, ending_epoch, sliding_window):
+	def __call__(self, trajectories):
 		num_spins = functools.reduce(lambda prod,item: prod *item, self.glass_shape,1)
-		for idx, task in enumerate(sliding_window):
+		c = []
+		for idx, trajectory in enumerate(trajectories):
 			energies, variances = [], []
-			for buffers in task:
-				for buffer in buffers:
-					energies.extend([buffer.reward_buffer[idx] for idx in range(len(buffer))])	
+			for t in trajectories[idx]:
+				energies.append(t['energy'])	
 
 			batches = [np.random.choice(energies, len(energies)) for i in range(100)]
 			
@@ -32,6 +34,8 @@ class specific_heat:
 			# SQRT(AVG(C^2)-AVG(C)^2)
 			# Compute variance of variances, which is specific hea	
 			specific_heat = var(energies) * self.beta**2 / num_spins
+			c.append(specific_heat)
 			error_c = var(variances)**.5
 			# See section 3.4 of online book
-			print(f"C = {specific_heat} ± {error_c}")
+			#print(f"C = {specific_heat} ± {error_c}")
+		return c

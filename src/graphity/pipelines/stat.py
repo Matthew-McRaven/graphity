@@ -21,7 +21,7 @@ class magnetic_susceptibility:
 		for idx, trajectory in enumerate(trajectories):
 			mags = []
 			for t in trajectories[idx]:
-				mags.append(t['energy'])	
+				mags.append(t['state'].float().mean())	
 			mag_sus = self.beta* num_spins * np.var(mags)
 			ms.append(mag_sus)
 			# See section 3.3 of online book

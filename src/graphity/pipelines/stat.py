@@ -10,6 +10,24 @@ def magnitization(trajectories):
 		mags.extend([mag])
 	return mags
 
+class magnetic_susceptibility:
+	def __init__(self, beta, glass_shape):
+		self.beta = beta
+		self.glass_shape = glass_shape
+
+	def __call__(self, trajectories):
+		num_spins = functools.reduce(lambda prod,item: prod *item, self.glass_shape,1)
+		ms = []
+		for idx, trajectory in enumerate(trajectories):
+			mags = []
+			for t in trajectories[idx]:
+				mags.append(t['energy'])	
+			mag_sus = self.beta* num_spins * np.var(mags)
+			ms.append(mag_sus)
+			# See section 3.3 of online book
+		print(f"MS = {ms}")
+		return ms
+
 class specific_heat:
 	def __init__(self, beta, glass_shape):
 		self.beta = beta
@@ -39,3 +57,4 @@ class specific_heat:
 			# See section 3.4 of online book
 			#print(f"C = {specific_heat} ± {error_c}")
 		return c
+

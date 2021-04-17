@@ -19,10 +19,14 @@ class sync_augmenter:
 		states  = []
 		def run_single_timestep(engine, timestep):
 			task.sample(task, start_states=[start_state], epoch=engine.state.epoch)
-			states.extend(task.trajectories[0].state_buffer[:])
+			
+			for idx, state in enumerate(task.trajectories[0].state_buffer[:]):
+				aug_data = {}
+				aug_data["state"] =  state
+				aug_data["energy"] = task.trajectories[0].reward_buffer[idx]
+				states.extend([aug_data])
 
 		trainer = ignite.engine.Engine(run_single_timestep)
 
 		trainer.run(range(self.sweeps), max_epochs=1)
-		
 		return states

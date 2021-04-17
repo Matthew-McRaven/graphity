@@ -17,8 +17,3 @@ def create_task(index, beta, glass_shape, name="Lingus"):
 		number = index,
 		sampler = random_sampler,
 		trajectories=1)
-
-def var(batch):
-	summed = functools.reduce(lambda sum, item: sum + item, batch, 0)
-	squared_sums = functools.reduce(lambda sum, item: sum + item**2, batch,0)
-	return squared_sums/len(batch) - (summed/len(batch))**2

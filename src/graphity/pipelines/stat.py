@@ -27,15 +27,15 @@ class specific_heat:
 			
 			# Compute per-batch variance
 			for batch in batches:
-				variance = var(batch)
+				variance = np.var(batch)
 				variance *= self.beta**2 / num_spins
 				variances.append(variance)
 
 			# SQRT(AVG(C^2)-AVG(C)^2)
 			# Compute variance of variances, which is specific hea	
-			specific_heat = var(energies) * self.beta**2 / num_spins
+			specific_heat = np.var(energies) * self.beta**2 / num_spins
 			c.append(specific_heat)
-			error_c = var(variances)**.5
+			error_c = np.var(variances)**.5
 			# See section 3.4 of online book
 			#print(f"C = {specific_heat} ± {error_c}")
 		return c

@@ -19,11 +19,10 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	var_wni = torch.zeros((num_tasks,))
 	for i,j in itertools.product(range(num_tasks), range(num_tasks)):
 		wni = torch.tensor(energy_list[i][-(inner_window_size+1):])
-		#print(wni)
-		var_wni[i] = var(wni.view(-1))
+		var_wni[i] = torch.var(wni.view(-1))
 		woj = torch.tensor(energy_list[j][:inner_window_size])
 		cm[i,j] = (wni.float().mean()-woj.float().mean())
-	var_cm = var(cm.view(-1))
+	var_cm = torch.var(cm.view(-1))
 	svar_cm = var_cm / num_tasks ** 2
 	svar_wni = var_wni.mean() / num_tasks
 	#print(f"vcm={svar_cm}, vwni={svar_wni}, ad = {abs(svar_cm - svar_wni)}")

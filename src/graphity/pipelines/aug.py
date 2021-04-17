@@ -20,11 +20,10 @@ class sync_augmenter:
 		def run_single_timestep(engine, timestep):
 			task.sample(task, start_states=[start_state], epoch=engine.state.epoch)
 			
-			for idx, state in enumerate(task.trajectories[0].state_buffer[:]):
-				aug_data = {}
-				aug_data["state"] =  state
-				aug_data["energy"] = task.trajectories[0].reward_buffer[idx]
-				states.extend([aug_data])
+			aug_data = {}
+			aug_data["state"] =  task.trajectories[0].state_buffer[-1]
+			aug_data["energy"] = task.trajectories[0].reward_buffer[-1]
+			states.extend([aug_data])
 
 		trainer = ignite.engine.Engine(run_single_timestep)
 

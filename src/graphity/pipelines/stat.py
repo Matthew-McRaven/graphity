@@ -37,6 +37,5 @@ class specific_heat:
 			c.append(specific_heat)
 			error_c = var(variances)**.5
 			# See section 3.4 of online book
-			print(f"C = {specific_heat} ± {error_c}")
-			print()
+			#print(f"C = {specific_heat} ± {error_c}")
 		return c

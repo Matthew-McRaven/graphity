@@ -5,15 +5,15 @@ from ignite.utils import setup_logger
 
 import graphity.environment.lattice
 class sync_augmenter:
-	def __init__(self, eq_graphs, beta, H=graphity.environment.lattice.IsingHamiltonian(), sweeps=1):
+	def __init__(self, eq_lattics, beta, H=graphity.environment.lattice.IsingHamiltonian(), sweeps=1):
 		self.beta = beta
-		self.count = len(eq_graphs)
-		self.eq_graphs = eq_graphs
+		self.count = len(eq_lattics)
+		self.eq_lattics = eq_lattics
 		self.H = H
 		self.sweeps = sweeps
 	def run(self,):
-		tasks = [graphity.pipelines.create_task(idx, self.beta, self.eq_graphs[0].shape) for idx in range(self.count)]
-		data = [self.augment(self.eq_graphs[idx], task) for idx, task in enumerate(tasks)]
+		tasks = [graphity.pipelines.create_task(idx, self.beta, self.eq_lattics[0].shape) for idx in range(self.count)]
+		data = [self.augment(self.eq_lattics[idx], task) for idx, task in enumerate(tasks)]
 		return data
 	def augment(self, start_state, task):
 		states  = []

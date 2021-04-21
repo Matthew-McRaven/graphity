@@ -1,25 +1,4 @@
-image: docker:19
-
-variables:
-  PROJECT_REPO: mcraven/graphity
-  REMOTE_REPO: 10.0.0.8:15050
-
-  # Need to name images per commit to avoid docker-in-docker issues.
-  CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}
-  LOCAL_CI_VERSION: ci.${CI_COMMIT_SHORT_SHA}.${CI_RUNNER_SHORT_TOKEN}
-
-  # Image that holds our library code.
-  IMAGE_NAME: graphity
-  LOCAL_IMAGE_NAME: matthew-mcraven/graphity/graphity
-  REMOTE_IMAGE_NAME: 10.0.0.8:15050/matthew-mcraven/graphity/graphity
-
-before_script:
-  # Must log-in to NAS's GitLab docker registy.
-  # The value of these tokens can be seen on Settings>CI/CD>Variables.
-  - docker login -u ${CI_USER} -p ${CI_TOKEN} ${CI_REGISTRY}
-  - docker info
-
-
+image: python:3.9
 
 stages:
   - Build Library
@@ -32,13 +11,14 @@ Build Dependencies:
   stage: Build Library
   needs: []
   script:
-    - docker build -f ./BuildLibrary.Dockerfile -t ${REMOTE_IMAGE_NAME}:${CI_VERSION} .
-    - docker push ${REMOTE_IMAGE_NAME}:${CI_VERSION}
+    - pip3 install -r requirements.txt
+    - pip3 install -e .
 
 Run Tests:
   stage: Test
   needs: [Build Dependencies]
   script:
-    - docker pull ${REMOTE_IMAGE_NAME}:${CI_VERSION}
-    - docker run --rm ${REMOTE_IMAGE_NAME}:${CI_VERSION}  /bin/sh -c "pytest -rPx"
+    - pip3 install -r requirements.txt
+    - pip3 install -e .
+    - python3 -m pytest .
     

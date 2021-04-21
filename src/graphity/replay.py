@@ -11,9 +11,7 @@ class MemoizedEpisode:
         def clear_replay(self):
             self.state = None
             self.action = None
-            self.log_prob = None
             self.reward = None
-            self.policy = None
             self.applied = False
 
             
@@ -63,7 +61,6 @@ class MemoizedEpisode:
         
     def __init__(self, obs_space, act_space, episode_length=200, device='cpu', enable_extra = False):
         super(MemoizedEpisode, self).__init__()
-        self.done = 0
         self.enable_extra = enable_extra
         self.memo = np.full([episode_length], None, dtype=object)
         for idx,_ in enumerate(self.memo): self.memo[idx] = self.Memo()
@@ -87,8 +84,6 @@ class MemoizedEpisode:
         self.memo[t].reward = reward
     def log_policy(self, t, policy):
         self.memo[t].policy = policy
-    def log_done(self, t):
-        self.done = t
     def log_extra_info(self, t, info_dict):
         assert isinstance(info_dict, dict)
 
@@ -98,4 +93,3 @@ class MemoizedEpisode:
     def clear_replay(self):
         for memo in self.memo: memo.clear_replay
         self.extra = {}
-        self.done = None

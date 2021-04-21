@@ -10,25 +10,22 @@ import graphity.replay
 # will need to refer to our parent class by relative path.
 
 # Methods to fill a task's sequential replay buffer.
-def sample_trajectories(task, start_states=None, epoch=None):
+def sample_trajectories(task):
     task.clear_trajectories()
     task.init_env()
-    if start_states is None: start_states = [None for i in range (task.trajectory_count)]
     for i in range(task.trajectory_count):
-        state, delta_e = task.env.reset(start_states[i])
+        state, delta_e = task.env.state, task.env.delta_e
         state = graphity.utils.torchize(state, task.device) # type: ignore
         episode = task.replay_ctor(task.env.observation_space, 
             task.env.action_space, task.episode_length, 
             device=task.device
         )
-        episode.log_done(task.episode_length + 1)
         for t in range(task.episode_length):
             
             episode.log_state(t, state)
             action, logprob_action = task.agent.act(state, delta_e)
-            new_state, delta_e, reward, done, extra_info = task.env.step(action)
-            delta_state = (new_state == state)
-            episode.log_action(t, action, logprob_action, delta_state.all())
+            new_state, delta_e, reward, _, extra_info = task.env.step(action)
+            episode.log_action(t, action, logprob_action, (new_state == state).all())
             episode.log_extra_info(t, extra_info)
 
             state = graphity.utils.torchize(new_state, task.device)
@@ -37,9 +34,6 @@ def sample_trajectories(task, start_states=None, epoch=None):
             else: reward = torch.tensor(reward).to(task.device) # type: ignore
 
             episode.log_rewards(t, reward)
-            if done: 
-                episode.log_done(t+1)
-                break
 
         task.add_trajectory(episode)
 

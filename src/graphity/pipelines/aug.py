@@ -7,21 +7,18 @@ import ray
 def augment(start_state, task, sweeps):
 	states  = []
 	def run_single_timestep(engine, timestep):
-		start = states[-1]["state"] if len(states) else start_state
-		task.sample(task, start_states=[start], epoch=engine.state.epoch)
-		aug_data = {}
-		aug_data["state"]  =  task.trajectories[0].state_buffer[-1]
-		aug_data["energy"] = task.trajectories[0].reward_buffer[-1]
-		
-		states.extend([aug_data])
-		trainer = ignite.engine.Engine(run_single_timestep)
-		
+		task.sample(task)
+		aug_data = {"state":task.trajectories[0].state_buffer[-1],
+			"energy": task.trajectories[0].reward_buffer[-1]}	
+		states.append(aug_data)
+	trainer = ignite.engine.Engine(run_single_timestep)
+
 	@trainer.on(Events.EPOCH_STARTED)
 	def reset_environment_state(engine):
 		task.env.reset(start_state)
 
 
-	trainer.run(range(sweeps-1), max_epochs=1)
+	trainer.run(range(sweeps), max_epochs=1)
 	return states
 @ray.remote
 def distributed_augment(start_state, task, sweeps):

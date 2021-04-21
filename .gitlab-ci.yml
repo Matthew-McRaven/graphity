@@ -1,4 +1,4 @@
-image: python:3.9
+image: python:3.8
 
 stages:
   - Build Library
@@ -11,6 +11,7 @@ Build Dependencies:
   stage: Build Library
   needs: []
   script:
+    - python3 --version
     - pip3 install -r requirements.txt
     - pip3 install -e .
 

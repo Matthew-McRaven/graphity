@@ -1,10 +1,10 @@
 import itertools
 import torch
-import graphity.site_strategy
+import graphity.strategy.site
 import graphity.environment.lattice.reward
 def test_mask_upper():
 	tensor = torch.full((4,4), -1.0)
-	tensor = graphity.site_strategy.mask_upper(tensor)
+	tensor = graphity.strategy.site.mask_upper(tensor)
 	for (i,j) in itertools.product(range(4), range(4)):
 		if i < j: assert not torch.isneginf(tensor[j,i])
 		else: assert torch.isneginf(tensor[j,i])
@@ -13,7 +13,7 @@ def test_score_1():
 	H = graphity.environment.lattice.IsingHamiltonian()
 
 
-	score_fn = graphity.site_strategy.Score1Neighbors(H)
+	score_fn = graphity.strategy.site.Score1Neighbors(H)
 	score = score_fn(tensor)
 
 	# Flip the spin of the top left element.
@@ -30,8 +30,8 @@ def test_score_1():
 def test_vanilla_ils():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
-	score_fn = graphity.site_strategy.Score1Neighbors(H)
-	ss = graphity.site_strategy.VanillaILS(score_fn)
+	score_fn = graphity.strategy.site.Score1Neighbors(H)
+	ss = graphity.strategy.site.VanillaILS(score_fn)
 	# Flip the spin of the top left element.
 	tensor[0,0]=-1.0
 	action, _ = ss(tensor)
@@ -40,8 +40,8 @@ def test_vanilla_ils():
 def test_softmax_ils():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
-	score_fn = graphity.site_strategy.Score1Neighbors(H)
-	ss = graphity.site_strategy.SoftmaxILS(score_fn)
+	score_fn = graphity.strategy.site.Score1Neighbors(H)
+	ss = graphity.strategy.site.SoftmaxILS(score_fn)
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)
@@ -49,8 +49,8 @@ def test_softmax_ils():
 def test_beta_ils(): 
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
-	score_fn = graphity.site_strategy.Score1Neighbors(H)
-	ss = graphity.site_strategy.BetaILS(score_fn)
+	score_fn = graphity.strategy.site.Score1Neighbors(H)
+	ss = graphity.strategy.site.BetaILS(score_fn)
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)
@@ -58,7 +58,7 @@ def test_beta_ils():
 def test_random_search():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
-	ss = graphity.site_strategy.RandomSearch()
+	ss = graphity.strategy.site.RandomSearch()
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)

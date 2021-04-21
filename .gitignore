@@ -1,6 +1,7 @@
 # Generated VS code files
 *.code-workspace
 .DS_Store
+artifacts/
 # Python environments
 venv
 venv-graphity

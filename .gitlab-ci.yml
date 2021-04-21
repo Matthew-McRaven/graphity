@@ -18,6 +18,11 @@ Build Dependencies:
 Run Tests:
   stage: Test
   needs: [Build Dependencies]
+  artifacts:
+    paths:
+      - artifacts/*
+      - artifacts/**
+    expire_in: 1 week
   script:
     - pip3 install -r requirements.txt
     - pip3 install -e .

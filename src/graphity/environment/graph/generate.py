@@ -2,7 +2,6 @@ import numpy as np
 from numpy.random import default_rng
 import torch.tensor
 
-
 def random_graph(graph_size, rng=None):
     if rng is None:
         # Need to generate a random nXn graph that is square, symmetric, integer-valued, and all 1's or 0's.
@@ -11,6 +10,7 @@ def random_graph(graph_size, rng=None):
     rand = rng.integers(0,2, (graph_size, graph_size))
 
     return torch.tensor(rand)
+
 def random_adj_matrix(graph_size, allow_self_loops=False, rng=None):
     if rng is None:
         # Need to generate a random nXn graph that is square, symmetric, integer-valued, and all 1's or 0's.

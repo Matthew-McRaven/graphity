@@ -18,12 +18,11 @@ class SpinGlassSimulator(gym.Env):
     def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False):
         self.H = H
         self.glass_shape = glass_shape
-        self.adj_mat = None
         self.allow_cuda = allow_cuda
         # Allow arbitary dimensions for spin glasses
-        low = np.array([*glass_shape, 2])
-        hi = np.array([*glass_shape,3])
-        self.action_space = gym.spaces.Box(low=low, high=hi, shape=(len(glass_shape)+1,), dtype=np.int8)
+        low = np.array([0 for _ in glass_shape])
+        hi = np.array([i for i in glass_shape])
+        self.action_space = gym.spaces.Box(low=low, high=hi, shape=(len(glass_shape),), dtype=np.int8)
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=glass_shape, dtype=np.int8)
 
 

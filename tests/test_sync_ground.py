@@ -6,7 +6,7 @@ import graphity.pipelines
 import matplotlib.pyplot as plt
 def test_sync_eq():
 	vals = np.logspace(-2,.3, 10)
-	glass_shape = (3,3)
+	glass_shape = (5,5)
 	task_count = 20
 	x = []
 	mags, c, ms = [], [], []

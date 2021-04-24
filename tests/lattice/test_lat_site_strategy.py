@@ -45,6 +45,7 @@ def test_softmax_ils():
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)
+	# Can't test what action is performed, because it is non-deterministic.
 
 def test_beta_ils(): 
 	tensor = torch.full((4,4), 1.0)
@@ -54,6 +55,7 @@ def test_beta_ils():
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)
+	# Can't test what action is performed, because it is non-deterministic.
 
 def test_random_search():
 	tensor = torch.full((4,4), 1.0)
@@ -62,3 +64,4 @@ def test_random_search():
 	# Flip the spin of the top left element.
 	tensor[0,0] = -1.0
 	action, _ = ss(tensor)
+	# Can't test what action is performed, because it is non-deterministic.

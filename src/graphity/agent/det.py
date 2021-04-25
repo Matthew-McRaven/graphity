@@ -15,7 +15,7 @@ class ForwardAgent(nn.Module):
         self.annealing_strategy = annealing_strategy
         self.beta = beta
         self.site_strategy = site_strategy
-
+    def end_sweep(self): self.annealing_strategy.reset()
     def act(self, lattice, delta_e):
         return self.forward(lattice, delta_e)
 

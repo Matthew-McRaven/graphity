@@ -11,7 +11,7 @@ def test_sync_eq():
 	x = []
 	print(f"beta = {beta}")
 	tasks = [graphity.pipelines.create_ground_task(idx, beta, glass_shape) for idx in range(task_count)]
-	ev = graphity.pipelines.sync_evolver(tasks, max_epochs=10, inner_window_size=1, outer_window_size=2,
+	ev = graphity.pipelines.sync_evolver(tasks, max_epochs=100, inner_window_size=1, outer_window_size=2,
 		run_fn=graphity.pipelines.run_ground, eq_check_fn=None, track_minima=True)
 	ev.run()
 	print(ev.minima())

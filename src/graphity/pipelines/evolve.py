@@ -76,7 +76,8 @@ def run_ground(index, epoch, start_state, task):
 	return task, {"resume":ret_state}
 
 class base_evolver:
-	def __init__(self, tasks, max_epochs=100, inner_window_size=10, outer_window_size=20, run_fn=run_eq, eq_check_fn=in_equilibrium):
+	def __init__(self, tasks, max_epochs=100, inner_window_size=10, outer_window_size=20, run_fn=run_eq, 
+		eq_check_fn=in_equilibrium, track_minima=False):
 		task_count = len(tasks)
 		self.tasks = tasks
 		self.epoch = 0
@@ -89,19 +90,35 @@ class base_evolver:
 
 		self.run_fn = run_fn
 		self.eq_check_fn = eq_check_fn
+		self.track_minima=track_minima
+		self._minima = []
 
 	def cont(self):
 		return self.epoch < self.forever + self.outer_window_size+1
+
+	def log_minima(self, task):
+		assert self.track_minima
+		mindex = np.argmin(task.trajectories[0].reward_buffer)
+		en = task.trajectories[0].reward_buffer[mindex]
+		if(mindex+1 < len(task.trajectories[0].reward_buffer)):
+			self._minima.append((en, task.trajectories[0].state_buffer[mindex+1]))
+
+	def minima(self):
+		assert self.track_minima
+		ret = []
+		min_energy = functools.reduce(lambda old, new: min(old, new[0]), self._minima, float("inf"))
+		ret = [x for en, x in self._minima if en == min_energy]
+		return min_energy, ret
 
 class sync_evolver(base_evolver):
 	def __init__(self, *args, **kwargs):
 		super(sync_evolver, self).__init__(*args, **kwargs)
 	def run(self):
 		while self.cont():
+			print('aqui')
 			# Perform one
 			updated_tasks = [self.run_fn( task.number, self.epoch, self.resume_state[task.number], task)
-				for task in self.tasks]
-
+				for task in self.tasks]	
 			# Equilibrium check is expensive and can starve actual work. Don't run too often.
 			if (self.epoch % self.inner_window_size == 0 and len(self.sliding_window[0]) >= self.outer_window_size 
 				and self.eq_check_fn is not None):
@@ -115,6 +132,8 @@ class sync_evolver(base_evolver):
 				if len(self.sliding_window[task.number]) > self.outer_window_size:
 					self.sliding_window[task.number].pop(0)
 					self.energy_list[task.number].pop(0)
+				print("aqui")
+				if(self.track_minima): self.log_minima(task)
 			# Compute where each task should resume on the next epoch.
 			for i,_ in enumerate(self.resume_state): self.resume_state[i] = updated_tasks[i][1]['resume']
 			
@@ -152,8 +171,8 @@ class distributed_sync_evolver(base_evolver):
 				if len(self.sliding_window[task.number]) > self.outer_window_size:
 					self.sliding_window[task.number].pop(0)
 					self.energy_list[task.number].pop(0)
+				if(self.track_minima): self.log_minima(task)
 			# Compute where each task should resume on the next epoch.
 			for i,_ in enumerate(self.resume_state): self.resume_state[i] = updated_tasks[i][1]['resume']
-			
 			self.epoch += 1
 		return self.resume_state

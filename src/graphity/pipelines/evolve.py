@@ -44,6 +44,7 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 def run_helper(index, epoch, start_state, task):
 	def run_single_timestep(engine, timestep):
 		task.sample(task)
+		task.agent.end_sweep()
 		engine.state.timestep = timestep
 
 	trainer = ignite.engine.Engine(run_single_timestep)

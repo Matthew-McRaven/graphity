@@ -8,6 +8,7 @@ def augment(start_state, task, sweeps):
 	states  = []
 	def run_single_timestep(engine, timestep):
 		task.sample(task)
+		task.agent.end_sweep()
 		aug_data = {"state":task.trajectories[0].state_buffer[-1],
 			"energy": task.trajectories[0].reward_buffer[-1]}	
 		states.append(aug_data)

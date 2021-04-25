@@ -105,9 +105,15 @@ class base_evolver:
 
 	def minima(self):
 		assert self.track_minima
-		ret = []
 		min_energy = functools.reduce(lambda old, new: min(old, new[0]), self._minima, float("inf"))
-		ret = [x for en, x in self._minima if en == min_energy]
+		temp = [x for en, x in self._minima if en == min_energy]
+		ret = []
+		for lattice in temp:
+			match = False
+			for other in ret: match = match or (other == lattice).all() 
+			if match: break
+			ret.append(lattice)
+
 		return min_energy, ret
 
 class sync_evolver(base_evolver):
@@ -115,7 +121,6 @@ class sync_evolver(base_evolver):
 		super(sync_evolver, self).__init__(*args, **kwargs)
 	def run(self):
 		while self.cont():
-			print('aqui')
 			# Perform one
 			updated_tasks = [self.run_fn( task.number, self.epoch, self.resume_state[task.number], task)
 				for task in self.tasks]	
@@ -132,7 +137,6 @@ class sync_evolver(base_evolver):
 				if len(self.sliding_window[task.number]) > self.outer_window_size:
 					self.sliding_window[task.number].pop(0)
 					self.energy_list[task.number].pop(0)
-				print("aqui")
 				if(self.track_minima): self.log_minima(task)
 			# Compute where each task should resume on the next epoch.
 			for i,_ in enumerate(self.resume_state): self.resume_state[i] = updated_tasks[i][1]['resume']

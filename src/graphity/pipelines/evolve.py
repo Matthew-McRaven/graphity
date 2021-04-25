@@ -3,6 +3,7 @@ from multiprocessing.context import Process
 import multiprocessing
 from queue import Empty
 import sys
+from numpy.core.fromnumeric import argmin
 
 
 import ray
@@ -14,6 +15,8 @@ import ignite.engine
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, accuracy
 from ignite.utils import setup_logger
+
+from graphity.environment.lattice import reward
 
 from .utils import *
 def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
@@ -38,7 +41,7 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=2):
 	elif abort: print("I aborteded")
 	return cond or abort
 
-def run_eq(index, epoch, start_state, task):
+def run_helper(index, epoch, start_state, task):
 	def run_single_timestep(engine, timestep):
 		task.sample(task)
 		engine.state.timestep = timestep
@@ -60,7 +63,17 @@ def run_eq(index, epoch, start_state, task):
 		#print(f"R^bar_({epoch:04d})_{task.number} = {(sum(trajectories)/len(trajectories)).item():07f}. Best was {min(trajectories):03f}.")
 
 	trainer.run(range(1), max_epochs=1)
+
+def run_eq(index, epoch, start_state, task):
+	run_helper(index, epoch, start_state, task)
 	ret_state = task.trajectories[0].state_buffer[-1]
+	return task, {"resume":ret_state}
+
+def run_ground(index, epoch, start_state, task):
+	run_helper(index, epoch, start_state, task)
+	rewards = np.array(task.trajectories[0].reward_buffer[:])
+	print(rewards, np.argmin(rewards), rewards[np.argmin(rewards)])
+	ret_state = task.trajectories[0].state_buffer[np.argmin(rewards)]
 	return task, {"resume":ret_state}
 
 class base_evolver:

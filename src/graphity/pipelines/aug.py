@@ -33,7 +33,7 @@ class sync_augmenter:
 		self.H = H
 		self.sweeps = sweeps
 	def run(self,):
-		tasks = [graphity.pipelines.create_task(idx, self.beta, self.eq_lattics[0].shape) for idx in range(self.count)]
+		tasks = [graphity.pipelines.create_eq_task(idx, self.beta, self.eq_lattics[0].shape) for idx in range(self.count)]
 		data = [augment(self.eq_lattics[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		return data
 
@@ -45,7 +45,7 @@ class distributed_sync_augmenter:
 		self.H = H
 		self.sweeps = sweeps
 	def run(self,):
-		tasks = [graphity.pipelines.create_task(idx, self.beta, self.eq_lattics[0].shape) for idx in range(self.count)]
+		tasks = [graphity.pipelines.create_eq_task(idx, self.beta, self.eq_lattics[0].shape) for idx in range(self.count)]
 		data = [distributed_augment.remote(self.eq_lattics[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		data = [ray.get(datum) for datum in data]
 		return data

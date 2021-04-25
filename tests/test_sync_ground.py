@@ -12,8 +12,9 @@ def test_sync_eq():
 	mags, c, ms = [], [], []
 	for beta in vals:
 		print(f"beta = {beta}")
-		tasks = [graphity.pipelines.create_task(idx, beta, glass_shape) for idx in range(task_count)]
-		eq_lattices = graphity.pipelines.sync_evolver(tasks, max_epochs=100, inner_window_size=5, outer_window_size=10).run()
+		tasks = [graphity.pipelines.create_ground_task(idx, beta, glass_shape) for idx in range(task_count)]
+		eq_lattices = graphity.pipelines.sync_evolver(tasks, max_epochs=100, inner_window_size=5, outer_window_size=10,
+			run_fn=graphity.pipelines.run_ground).run()
 		tau = graphity.pipelines.sync_autocorrelation(eq_lattices, beta, sweeps=10).run()
 		print(f"tau={tau}")
 		tau = min(tau, 5)

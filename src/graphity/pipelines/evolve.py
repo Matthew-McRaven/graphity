@@ -72,7 +72,6 @@ def run_eq(index, epoch, start_state, task):
 def run_ground(index, epoch, start_state, task):
 	run_helper(index, epoch, start_state, task)
 	rewards = np.array(task.trajectories[0].reward_buffer[:])
-	print(rewards, np.argmin(rewards), rewards[np.argmin(rewards)])
 	ret_state = task.trajectories[0].state_buffer[np.argmin(rewards)]
 	return task, {"resume":ret_state}
 
@@ -104,7 +103,8 @@ class sync_evolver(base_evolver):
 				for task in self.tasks]
 
 			# Equilibrium check is expensive and can starve actual work. Don't run too often.
-			if self.epoch % self.inner_window_size == 0 and len(self.sliding_window[0]) >= self.outer_window_size:
+			if (self.epoch % self.inner_window_size == 0 and len(self.sliding_window[0]) >= self.outer_window_size 
+				and self.eq_check_fn is not None):
 				eq = self.eq_check_fn(self.epoch, self.energy_list, self.inner_window_size)
 				if(eq): self.forever = min(self.forever, self.epoch)
 

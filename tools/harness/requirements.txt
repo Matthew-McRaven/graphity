@@ -68,5 +68,5 @@ toml==0.10.2
 torch==1.7.0
 torchvision==0.8.1
 typing-extensions==3.7.4.3
-urllib3==1.26.3
+urllib3==1.26.4
 yarl==1.6.3

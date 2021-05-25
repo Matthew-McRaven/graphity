@@ -59,7 +59,7 @@ PyYAML==5.3.1
 ray==1.1.0
 redis==3.5.3
 requests==2.25.1
-rsa==4.6
+rsa==4.7
 scipy==1.5.4
 six==1.15.0
 tabulate==0.8.7

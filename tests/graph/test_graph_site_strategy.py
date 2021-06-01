@@ -21,10 +21,10 @@ def test_score_1():
 	score = score_fn(tensor)
 	print(score)
 	# Magic math from betre tells us our grad should be as follows.
-	match = torch.tensor([[  0., -12., -12., -12.],
-        [-12., -16., -12., -12.],
-        [-12., -12., -16., -12.],
-        [-12., -12., -12., -16.]])
+	match = torch.tensor([[  12., 0., 0., 0.],
+        [0., -4., 0., 0.],
+        [0., 0., -4.,0.],
+        [0., 0., 0., -4.]])
 	assert (score == match).all()
 
 def test_vanilla_ils():

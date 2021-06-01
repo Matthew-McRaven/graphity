@@ -1,34 +1,44 @@
 # All imports from python standard library. Alphabatized, one per line.
 # Which are empty for now...
 
+# All imports from the standard library. Alphabatized, one per line.
+import functools
+
 # All imports from modules we got from pip. Alphabatized, one per line.
 import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 
 # All imports from modules we wrote ourselves. Alphabatized, one per line.
-import graphity.environment.reward
-import graphity.environment.sim
-import graphity.agent.markov
+import graphity.agent.det
+import graphity.environment.lattice
+from graphity.strategy.anneal import ConstBeta
+import graphity.task
+import graphity.strategy.site
 
 def main(args):
+    lattice_shape = (args.size, args.size)
     # Allocate simulation and agent.
-    agent = graphity.agent.markov.RandomAgent()
-    env = graphity.environment.sim.Simulator(graph_size=args.size)
+    H = graphity.environment.lattice.IsingHamiltonian()
+    random_sampler = graphity.task.RandomGlassSampler(lattice_shape)
+    ss = graphity.strategy.site.RandomSearch()
+    agent = graphity.agent.det.ForwardAgent(ConstBeta(args.beta), ss)
+    env = graphity.environment.lattice.RejectionSimulator(glass_shape=lattice_shape, H=H)
 
     # Initialize simulation to random graph.
-    state = env.reset()
+    state, delta_e = env.reset()
     done, step, reward = False, 0, float('inf')
     
     # Record the per-trial minimum energy and lowest energy state.
-    # Hopefully it can be shown to be geometri
-    min_reward, min_state = env.H(state), state
+    # Hopefully it can be shown to be geometric
+    min_reward, _ = env.H(state, )
+    min_state = state
 
     while step < args.max_steps:
         step += 1
         # Generate a new action and take it.
-        action = agent(state)
-        state, reward = env.step(action)
+        action, logprob_action = agent(state, delta_e)
+        state, delta_e, reward, _, extra_info = env.step(action)
 
         # If we run for a long time, be kind and provide proof of forward progress.
         if step % 10_000 == 0:
@@ -71,6 +81,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This program generates a random graph of size (size), and randomly toggles edges.')
     parser.add_argument('--size', type=int, default=8,
                         help='Number of nodes in the graph.')
+    parser.add_argument('--beta', type=int, default=1/2,
+                        help='Inverse temperature of the system.')
     parser.add_argument('--max-steps', dest='max_steps', default=1_000,
                         help='Number of toggle steps to perform.')
     parser.add_argument('--print-steps', dest='print_steps', default=10_000,

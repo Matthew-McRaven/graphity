@@ -1,6 +1,3 @@
-# All imports from python standard library. Alphabatized, one per line.
-# Which are empty for now...
-
 # All imports from the standard library. Alphabatized, one per line.
 import functools
 

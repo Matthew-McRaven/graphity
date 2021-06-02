@@ -37,5 +37,5 @@ pages:
       - docs/build/html
   script:
   - pip install -r requirements.txt
-  - cd docs/source && make html
+  - cd docs && make html
 

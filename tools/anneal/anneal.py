@@ -3,6 +3,7 @@ import numpy as np
 
 import graphity.pipelines
 import matplotlib.pyplot as plt
+import graphity.environment.lattice
 if __name__ == "__main__":
 	vals = np.logspace(-2,.3, 50)
 	ray.init(address='auto')
@@ -12,7 +13,9 @@ if __name__ == "__main__":
 	mags, c, ms = [], [], []
 	for beta in vals:
 		print(f"beta = {beta}")
-		tasks = [graphity.pipelines.create_eq_task(idx, beta, glass_shape) for idx in range(task_count)]
+		H = graphity.environment.lattice.ConstInfiniteRangeHamiltonian()
+		#H = graphity.environment.lattice.IsingHamiltonian()
+		tasks = [graphity.pipelines.create_eq_task(idx, beta, glass_shape, H=H) for idx in range(task_count)]
 		eq_lattices = graphity.pipelines.distributed_sync_evolver(tasks, max_epochs=1000, inner_window_size=5, outer_window_size=10).run()
 		tau = graphity.pipelines.distributed_sync_autocorrelation(eq_lattices, beta, sweeps=10).run()
 		print(f"tau={tau}")
@@ -28,5 +31,5 @@ if __name__ == "__main__":
 	axs[0].set_xscale('log')
 	axs[1].scatter(x, c, alpha=0.1)
 	axs[1].set_xscale('log')
-	plt.show()
+	#plt.savefig("inf-range-ising-glass.png")
 

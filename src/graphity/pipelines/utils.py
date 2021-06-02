@@ -6,8 +6,8 @@ from graphity.strategy.anneal import ConstBeta
 import graphity.task
 import graphity.strategy.site
 
-def create_eq_task(index, beta, glass_shape, name="Lingus"):
-	H = graphity.environment.lattice.IsingHamiltonian()
+def create_eq_task(index, beta, glass_shape, name="Lingus",
+	H = graphity.environment.lattice.IsingHamiltonian()):
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	ss = graphity.strategy.site.RandomSearch()
 	agent = graphity.agent.det.ForwardAgent(ConstBeta(beta), ss)	

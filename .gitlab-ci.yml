@@ -34,8 +34,8 @@ pages:
   needs: []
   artifacts:
     paths:
-      - docs/build/html
+      - public
   script:
   - pip install -r requirements.txt
-  - cd docs && make html
+  - cd docs && make html && mv build/html ../public
 

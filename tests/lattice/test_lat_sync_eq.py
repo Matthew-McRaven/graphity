@@ -32,7 +32,7 @@ def test_sync_eq():
 		eq_lattices = graphity.pipelines.sync_evolver(tasks, max_epochs=100, inner_window_size=5, outer_window_size=10).run()
 
 		# Compute auto-correlation time
-		tau = graphity.pipelines.distributed_sync_autocorrelation(eq_lattices, beta, sweeps=10).run()
+		tau = graphity.pipelines.sync_autocorrelation(eq_lattices, beta, sweeps=10).run()
 		print(f"tau={tau}")
 		# But clamp it to something small. This is a fast-runnning regression test.
 		tau = min(tau, 5)

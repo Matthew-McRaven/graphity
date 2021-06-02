@@ -1,13 +1,26 @@
 import itertools
+
 import torch
-import graphity.strategy.site
+
 import graphity.environment.lattice.reward
+import graphity.strategy.site
+
+
+###########################################################
+# Test that we can mask out the upper portion of a matrix #
+###########################################################
 def test_mask_upper():
 	tensor = torch.full((4,4), -1.0)
 	tensor = graphity.strategy.site.mask_upper(tensor)
 	for (i,j) in itertools.product(range(4), range(4)):
 		if i < j: assert not torch.isneginf(tensor[j,i])
 		else: assert torch.isneginf(tensor[j,i])
+
+#########################################################
+# Test that site selection strategies work as predicted #
+#########################################################
+
+# Evaluate all future states which are within one toggle of the current state.
 def test_score_1():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
@@ -27,6 +40,7 @@ def test_score_1():
         [ 4.,  8.,  8.,  8.]])
 	assert (score == match).all()
 
+# Pick the transition within 1 toggle that maximally minimizes the energy.
 def test_vanilla_ils():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
@@ -37,6 +51,8 @@ def test_vanilla_ils():
 	action, _ = ss(tensor)
 	assert (action == torch.tensor([0, 0])).all()
 
+# Treat the 1-neighbor transition scores as a probability distribution.
+# Randomly sample a site from this probability distribution.
 def test_softmax_ils():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
@@ -47,6 +63,9 @@ def test_softmax_ils():
 	action, _ = ss(tensor)
 	# Can't test what action is performed, because it is non-deterministic.
 
+# Treat the 1-neighbor transition scores as a probability distribution.
+# This distribution is the beta distribution, which heabily biases choices towards the "best" transition.
+# Randomly sample a site from this probability distribution.
 def test_beta_ils(): 
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()
@@ -57,6 +76,8 @@ def test_beta_ils():
 	action, _ = ss(tensor)
 	# Can't test what action is performed, because it is non-deterministic.
 
+# Just randomly pick a site.
+# No clever thoughts on this one.
 def test_random_search():
 	tensor = torch.full((4,4), 1.0)
 	H = graphity.environment.lattice.IsingHamiltonian()

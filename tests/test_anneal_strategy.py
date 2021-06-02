@@ -1,7 +1,14 @@
 import itertools
+
 import torch
+
 import graphity.strategy.anneal
 
+##################################################################
+# Test that temperature modification schedules work as predicted #
+##################################################################
+
+# Test that the constant temperature schedule never changes.
 def test_const_temp():
 	start_beta = beta = 5
 	strat = graphity.strategy.anneal.ConstBeta(beta)

@@ -2,6 +2,7 @@ aiohttp==3.7.4.post0
 aiohttp-cors==0.7.0
 aioredis==1.3.1
 alabaster==0.7.12
+astroid==2.5.7
 async-timeout==3.0.1
 attrs==20.3.0
 Babel==2.9.1
@@ -32,6 +33,7 @@ Jinja2==3.0.1
 joblib==1.0.1
 jsonschema==3.2.0
 kiwisolver==1.3.1
+lazy-object-proxy==1.6.0
 MarkupSafe==2.0.1
 matplotlib==3.4.1
 more-itertools==8.7.0
@@ -72,6 +74,7 @@ six==1.15.0
 sklearn==0.0
 snowballstemmer==2.1.0
 Sphinx==4.0.2
+sphinx-autoapi==1.8.1
 sphinxcontrib-applehelp==1.0.2
 sphinxcontrib-devhelp==1.0.2
 sphinxcontrib-htmlhelp==2.0.0
@@ -86,5 +89,7 @@ torch==1.8.1
 torch-vision==0.1.6.dev0
 torchvision==0.9.1
 typing-extensions==3.7.4.3
+Unidecode==1.2.0
 urllib3==1.26.5
+wrapt==1.12.1
 yarl==1.6.3

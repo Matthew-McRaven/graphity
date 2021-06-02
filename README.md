@@ -27,7 +27,8 @@ Additionally, it will take about 80M of hard disk space.
 
 
 # Source Code Layout
+* `data/` Contains lists of graphs that can be used as ground states.
+* `docs/` Contains code to generate pretty documentation for the Graphity package.
 * `src/` Contains the graphity python package. Each directory has a README describing what each portion of the code does.
 * `test/` Contains unit tests that provide a degree of confidence in our `graphity` package. This is a good place to look for examples on how to use the package.
-* `data/` Contains lists of graphs that can be used as ground states.
 * `tools/ ` Contains a grouping of useful scripts. For example, one tool before distributed annealing and generates mag/c/ms graphs for a given N.

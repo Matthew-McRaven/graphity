@@ -38,4 +38,6 @@ pages:
   script:
   - pip install -r requirements.txt
   - cd docs && make html && mv build/html ../public
+  only:
+    - master
 

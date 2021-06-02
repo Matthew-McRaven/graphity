@@ -1,4 +1,9 @@
-__all__ = ['det', 'pg']
+__all__ = ['det']
+
+"""
+Contains all the agents we can use.
+"""
+
 def add_agent_attr(policy_based=False, allow_update=False):
     def deco(cls):
         attrs = {}

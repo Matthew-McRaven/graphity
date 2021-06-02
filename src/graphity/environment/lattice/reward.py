@@ -114,6 +114,19 @@ class IsingHamiltonian(AbstractSpinGlassHamiltonian):
     def __init__(self):
         super(IsingHamiltonian, self).__init__(self._J)
         self.J_Mat = None
+# Nearest-neighbor interactions only.
+class ConstInfiniteRange(AbstractSpinGlassHamiltonian):
+    # Simple lookup on pre-computed
+    def _J(self, size):
+        # TODO: Extend for arbitrary dimensionality.
+        if self.J_Mat is None:
+            dims = size+size
+            self.J_Mat = torch.full(dims, self.constant, dtype=torch.float32)
+
+    def __init__(self, constant=1.0):
+        super(ConstInfiniteRange, self).__init__(self._J)
+        self.constant = constant
+        self.J_Mat = None
 
 # Allow for arbitrary, random interaction between any two particles.
 class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):

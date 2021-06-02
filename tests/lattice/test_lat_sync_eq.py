@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 ###################################################
 
 def test_sync_eq():
-	# Pick parameters that will execute quickly
-
-def test_sync_eq():
 	# Pick parameters that will run quickly but will still yield good looking graphs
 	glass_shape = (5,5)
 	task_count = 20

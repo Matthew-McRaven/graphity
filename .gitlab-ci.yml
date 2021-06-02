@@ -3,6 +3,7 @@ image: python:3.8
 stages:
   - Build Library
   - Test
+  - Deploy 
 #########
 # Build the boost / python dependencies of out project.
 # All jobs use GIT_LFS_SKIP_SMUDGE, which prevents GIT LFS from pulling large data files.
@@ -27,4 +28,14 @@ Run Tests:
     - pip3 install -r requirements.txt
     - pip3 install -e .
     - python3 -m pytest .
-    
+
+pages:
+  stage: deploy
+  script:
+  - pip install -U sphinx
+  - sphinx-build -b html . public
+  artifacts:
+    paths:
+    - public
+  only:
+  - master

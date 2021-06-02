@@ -30,12 +30,12 @@ Run Tests:
     - python3 -m pytest .
 
 pages:
-  stage: deploy
-  script:
-  - pip install -U sphinx
-  - sphinx-build -b html . public
+  stage: Deploy
+  needs: []
   artifacts:
     paths:
-    - public
-  only:
-  - master
+      - docs/build/html
+  script:
+  - pip install -r requirements.txt
+  - cd docs/source && make html
+

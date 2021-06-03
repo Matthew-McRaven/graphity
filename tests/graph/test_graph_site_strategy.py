@@ -13,8 +13,8 @@ def test_mask_upper():
 	tensor = torch.full((4,4), -1.0)
 	tensor = graphity.strategy.site.mask_upper(tensor)
 	for (i,j) in itertools.product(range(4), range(4)):
-		if i < j: assert not torch.isneginf(tensor[j,i])
-		else: assert torch.isneginf(tensor[j,i])
+		if i < j: assert not torch.isinf(tensor[j,i])
+		else: assert torch.isinf(tensor[j,i])
 
 #########################################################
 # Test that site selection strategies work as predicted #

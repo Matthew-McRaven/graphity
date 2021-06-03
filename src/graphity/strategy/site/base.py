@@ -4,9 +4,13 @@ import numpy as np
 from numpy.random import Generator, PCG64
 
 class RandomSearch:
-    def __init__(self, toggles=1, **kwargs):
+    """
+    Randomly select a site to toggle.
+    """
+    def __init__(self):
+        # Create a fast distribution from which to sample sites.
         self.rng = Generator(PCG64())
-        self.toggles = toggles
+
     def __call__(self, adj):
         low = len(adj.shape)*(0,)
         high = adj.shape

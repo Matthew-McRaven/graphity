@@ -1,7 +1,7 @@
 """
 Implement multiple methods of temperature scheduling.
 
-In order for a class to be considered a valid temperature scheduling object, it must have the following properties.
+In order for a class to be considered a valid temperature scheduling object, it must have the following methods.
 
 It must have a call operator that accepts a beta and delta_e. 
 Using the knowledge of the current temperature and the change in energy from the last state, the object must return

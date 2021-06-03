@@ -211,7 +211,7 @@ class sync_evolver(base_evolver):
 		"""
 		while self.cont():
 			# Perform one epoch's worth of time-evolution.
-			updated_tasks = [self.run_fn(task.number, self.epoch, self.resume_state[task.number], task)
+			updated_tasks = [self.run_fn(self.epoch, self.resume_state[task.number], task)
 				for task in self.tasks]	
 			# Equilibrium check is expensive and can starve actual work. Don't run too often.
 			if (self.epoch % self.inner_window_size == 0 and len(self.sliding_window[0]) >= self.outer_window_size 
@@ -261,7 +261,7 @@ class distributed_sync_evolver(base_evolver):
 		"""
 		while self.cont():
 			# Perform one epoch's worth of time-evolution across ray runtime.
-			workers = [self.remotify.remote(self.run_fn, task.number, self.epoch, self.resume_state[task.number], task) 
+			workers = [self.remotify.remote(self.run_fn, self.epoch, self.resume_state[task.number], task) 
 				for task in self.tasks
 			]
 

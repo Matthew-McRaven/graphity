@@ -33,7 +33,7 @@ def compute_betre(adj, d, keep_diag):
     """
     contrib = contribution(adj, d, keep_diag)
     # Sum over contributions, leaving us with a scalar energy.
-    return torch.sum(contrib, (1,2)), contrib
+    return torch.sum(contrib, (0,1)), contrib
 
 class ASquaredD:
     """

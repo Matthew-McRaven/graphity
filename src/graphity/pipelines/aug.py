@@ -41,6 +41,7 @@ def distributed_augment(start_state, task, sweeps):
 	Wrap graphity.pipelines.augment so that it can be run in a distributed fashion.
 
 	Chose not to make augment(...) distributed, so that distributed computation is not necessary to do augmentation.
+	
 	:param start_state: Seed graph for the simulation.
 	:param task: An object which contains an environment, agent, and possesses the ability to sample rollouts. See graphity.task.
 	:param sweeps: Number of (state, energy) pairs to collect.

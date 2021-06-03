@@ -132,6 +132,7 @@ class base_evolver:
 		eq_check_fn=in_equilibrium, track_minima=False):
 		"""
 		Base initializer for time-evolution
+		
 		:param tasks: The set of all tasks which will be time-evolved.
 		:param max_epochs: Number of epochs for which tasks will be time evolved.
 		:param inner_window_size: The number of epochs over which equilibriation will be computed. 

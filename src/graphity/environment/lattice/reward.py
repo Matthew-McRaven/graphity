@@ -7,6 +7,10 @@ import numpy as np
     
 
 def contribution(spins, J):
+    """
+    Computes the contribution of each site to the overall energy of a glass.
+    This allows faster re-computation on toggles, as you only have to update sites who interact with the changed value.
+    """
     contribution = torch.zeros(spins.shape, dtype=torch.float32)
     # Unpack size of i,j dimensions, respectively
     dims = [range(dim) for dim in spins.shape]
@@ -23,20 +27,50 @@ def contribution(spins, J):
 # Spin Glass Hamiltonian #
 ##########################
 class AbstractSpinGlassHamiltonian():
-    decomposable = True
+    """
+    Abstract base class for any spin glass Hamiltonians.
+    Reduces code reuse by implementing methods shared between other spin glass Hamiltonians.
+
+    Deriving classes must specify a class attribute, J_Mat, a 4-d tensor that records the strength of interaction between
+    site (i,j) and site (k,l) by the equation `self.J_Mat[i, j, k, l]`. This tensor is generated on first use by calling
+    self.J(some_glass_here), so that no a-priori knowledge of glass shape is needed. Glass shapes must not change at runtime.
+    """
     # "J" encapsulates the interaction between any two particles.
     def __init__(self, J):
+        """
+        :param J: A function of an lattice which will fill in self.J_Mat
+        """
         self.J = J
 
 
     def compute_glass(self, spins, J):
+        """
+        Recompute the energy of a spin glass from scratch. Must match in signature with operator().
+
+        :param spins: A tensor containing a spin glass.
+        :param J: A 4-d tensor recording interaction between two sites.
+        """
         contribs = contribution(spins, J)   
         energy = contribs.sum()
 
         return energy, contribs
 
-    def fast_toggle(self, spins, c, site):
-        contribution = c.detach().clone()
+    def fast_toggle(self, spins, contrib, site):
+        """
+        Using knowledge of which sites changed and what old contributions were, recompute only contributions that changed.
+        This is much more efficient than calling recompute_glass(...) on every change.
+
+        Extensive unit tests indicate that this method is exactly equivalent to a full recomputation.
+        Additionally, at one point, I had a formula that proved this.
+        In the future, I may add the proof here.
+
+        :param spins: A tensor containing a spin glass. The desired change(s) has already been applied to this glass.
+        :param contribs: A tensor containing the energy each site contributes to the total energy. The desired change(s)
+        have not yet been applied to this tensor.
+        :param site: A list of (index, old_value) pairs which contain the location and old value of all sites that have been toggled.
+        """
+
+        contribution = contrib.detach().clone()
         self.J(spins.shape)
         # Unpack size of i,j dimensions, respectively
         site_index, old_site_value = site
@@ -51,10 +85,29 @@ class AbstractSpinGlassHamiltonian():
         return contribution
 
     def contribution(self, spins):
+        """
+        Determine the contribution of each site to the total energy of the spin glass.
+
+        :param spins: A tensor containing a spin glass. 
+        """
         self.J(spins.shape)
         return contribution(spins, self.J_Mat)
 
     def __call__(self, spins, prev_contribs=None, changed_sites=None):
+        """
+        Compute the energy of a spin glass.
+
+        If either prev_contrib or changed_sites are `None`, then the spin glass will be entirely re-computed.
+        If both contain relevant data, a faster computation can take place.
+
+        :param spins: A tensor containing a spin glass. The desired change(s) has already been applied to this glass.
+        :param contribs: A tensor containing the energy each site contributes to the total energy. The desired change(s)
+        have not yet been applied to this tensor. If None, a full recalculation will be performed instead of a fast partial computation.
+        Defaults to None.
+        :param site: A list of (index, old_value) pairs which contain the location and old value of all sites that have been toggled.
+        If None, a full recalculation will be performed instead of a fast partial computation.
+        Defaults to None.
+        """
         # If we have no cached information from the previous timestep, we must perform full recompute
         if prev_contribs is None or changed_sites is None:
             self.J(spins.shape)
@@ -68,17 +121,22 @@ class AbstractSpinGlassHamiltonian():
             for site in changed_sites:
                 contribs = self.fast_toggle(spins, contribs, site)
             energy = contribs.sum()
-
-           # p1 = imat.sum()/(imat.shape[0]*imat.shape[1]) 
-            #ent = -(p1 * p1.log() + (1-p1)*(1-p1).log())
-            #print(ent)
             
             return energy, contribs
 
 # Nearest-neighbor interactions only.
 class IsingHamiltonian(AbstractSpinGlassHamiltonian):
-    # Simple lookup on pre-computed
+    """
+    A Hamiltonian for spin glasses with only nearest-neighbor interactions. 
+    These interactions have unit strength.
+    All other interactions are 0.
+    """
+
     def _J(self, size):
+        """
+        Function passed as J to AbstractSpinGlassHamiltonian.__init__().
+        Initializes J_Mat to the correct coupling tensor.
+        """
         # TODO: Extend for arbitrary dimensionality.
         if self.J_Mat is None:
             if len(size) == 1:
@@ -114,11 +172,17 @@ class IsingHamiltonian(AbstractSpinGlassHamiltonian):
     def __init__(self):
         super(IsingHamiltonian, self).__init__(self._J)
         self.J_Mat = None
-# Nearest-neighbor interactions only.
+
 class ConstInfiniteRangeHamiltonian(AbstractSpinGlassHamiltonian):
-    # Simple lookup on pre-computed
+    """
+    A Hamiltonian for spin glasses with infinite-range interactions.
+    All interactions have the same strength.
+    """
     def _J(self, size):
-        # TODO: Extend for arbitrary dimensionality.
+        """
+        Function passed as J to AbstractSpinGlassHamiltonian.__init__().
+        Initializes J_Mat to the correct coupling tensor.
+        """
         if self.J_Mat is None:
             dims = size+size
             self.J_Mat = torch.full(dims, self.constant, dtype=torch.float32)
@@ -130,8 +194,17 @@ class ConstInfiniteRangeHamiltonian(AbstractSpinGlassHamiltonian):
 
 # Allow for arbitrary, random interaction between any two particles.
 class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
-    # Simple lookup on pre-computed
+    """
+    A Hamiltonian for spin glasses with infinite-range interactions.
+    All interactions have random strength.
+
+    Strengths can either be drawn from a categorical distribution (i.e., {-1, +1}) or a normal distribution (i.e., N(0,1)).
+    """
     def _J(self, size):
+        """
+        Function passed as J to AbstractSpinGlassHamiltonian.__init__().
+        Initializes J_Mat to a random coupling matrix.
+        """
         if self.J_Mat is None:
             size = tuple(2*size)
             # Mode where we only allow interactions of {-1, +1}
@@ -150,11 +223,13 @@ class SpinGlassHamiltonian(AbstractSpinGlassHamiltonian):
                 self.J_Mat = self._dist.sample((*size,))
 
     def __init__(self, categorical=False):
+        """
+        :param categorical: If truthy, draw interactions from {+1, -1}. Otherwise, draw interactions from N(0, 1) 
+        """
         super(SpinGlassHamiltonian, self).__init__(self._J)
         self.categorical = categorical
         # Generate J on first use. It's values don't really matter, as long as they are 
-        # the same between timesteps. Defering generation to the call of _J means we don't
-        # have to pre-compute the size of this thing in the command line.
+        # the same between timesteps.
         self.J_Mat = None
 
 

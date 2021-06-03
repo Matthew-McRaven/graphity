@@ -9,13 +9,18 @@ from numpy.random import Generator, PCG64
 from .generate import *
 from .reward import IsingHamiltonian
 
-"""
-A simulator for quantum spin glasses.
-You may choose any hamiltonian designed for spin glasses.
-"""
+
 class SpinGlassSimulator(gym.Env):
-    metadata = {}
+    """
+    A simulator for spin glasses which unconditionally accepts spin flips.
+    You may choose any hamiltonian designed for spin glasses.
+    """
     def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False):
+        """
+        :param H: A Hamiltonian designed for spin glasses.
+        :param glass_shape: The dimension of spin glasses to be used in the simulator.
+        :param allow_cuda: Can we do computations on the GPU? Currently ignored (2021-06-03).
+        """
         self.H = H
         self.glass_shape = glass_shape
         self.allow_cuda = allow_cuda
@@ -26,9 +31,13 @@ class SpinGlassSimulator(gym.Env):
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=glass_shape, dtype=np.int8)
 
 
-    # Reset the environment to a start state---either random or provided.
-    # If the supplied adjacency matrix is not the same size as self.glass_shape, self.glass_shape is updated.
     def reset(self, start=None):
+        """
+        Reset the environment to a start state---either random or provided.
+        If the supplied lattice is not the same size as self.glass_shape, self.glass_shape is updated.
+
+        :param start: A lattice from which simulation begins. If None, a random start state will be generated.
+        """
         if start is not None:
             assert isinstance(start, torch.Tensor)
             start_state = start.detach().clone()
@@ -47,6 +56,12 @@ class SpinGlassSimulator(gym.Env):
         return self.state, self.delta_e
 
     def evolve(self, sites):
+        """
+        Time evolve the current state by applying the list of sites contained in sites.
+
+        The elements of site should have the same len as self.glass_shape.
+        :param sites: A list of tuples. Each tuple contains a site to be toggled.
+        """
         sites = sites.reshape(-1, len(self.glass_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.detach().clone()
@@ -62,20 +77,39 @@ class SpinGlassSimulator(gym.Env):
     # Apply a list of edge toggles to the current state.
     # Return the state after toggling as well as the reward.
     def step(self, action):
+        """
+        Modify the current state by applying the action to the current state.
+
+        :param action: A tuple of sites to change and the beta at which the simulation is to be run.
+        """
         sites, beta = action
         self.state, self.energy, self.contrib = self.evolve(sites)
+        # TODO: Correctly compute delta-e (the 0).
         return self.state, 0, self.energy, False, {"contrib":self.contrib}
 
 
 class RejectionSimulator(SpinGlassSimulator):
-    metadata = {}
+    """
+    A simulator for spin glasses which conditionally accepts spin flips according to metropolis-hastings.
+    You may choose any hamiltonian designed for spin glasses.
+    """
     def __init__(self, H=IsingHamiltonian(), glass_shape=(4,4), allow_cuda=False):
+        """
+        :param H: A Hamiltonian designed for spin glasses.
+        :param glass_shape: The dimension of spin glasses to be used in the simulator.
+        :param allow_cuda: Can we do computations on the GPU? Currently ignored (2021-06-03).
+        """
+
         super(RejectionSimulator, self).__init__(H, glass_shape, allow_cuda)
         self.rng = Generator(PCG64())
      
-    # Apply a list of edge toggles to the current state.
-    # Return the state after toggling as well as the reward.
     def step(self, action):
+        """
+        Modify the current state by applying the action to the current state.
+        If the action is disadvantageous, it will be conditionally rejected according to the metropolis-hastings algorithm.
+
+        :param action: A tuple of sites to change and the beta at which the simulation is to be run.
+        """
         sites, beta = action
         old_state, old_contribs, old_energy = self.state, self.contrib, self.energy
         # Pair of check that ensures that old contribs are not mngled by H.

@@ -9,26 +9,37 @@ from numpy.random import Generator, PCG64
 from .generate import *
 from .reward import ASquaredD
 
-"""
-A simulator for quantum spin glasses.
-You may choose any hamiltonian designed for spin glasses.
-"""
+
 class GraphSimulator(gym.Env):
-    metadata = {}
+    """
+    A simulator for spacetime graphs which unconditionally accepts edge toggles.
+    You may choose any hamiltonian designed for spacetime graphs.
+    """
     def __init__(self, H=ASquaredD(2), graph_shape=(4,4), allow_cuda=False):
+        """
+        :param H: A Hamiltonian designed for spacetime graphs.
+        :param glass_shape: The dimension of graph to be used in the simulator.
+        :param allow_cuda: Can we do computations on the GPU? Currently ignored (2021-06-03).
+        """
         self.H = H
         self.graph_shape = graph_shape
         self.allow_cuda = allow_cuda
-        # Allow arbitary dimensions for spin glasses
+
+        # Adjacency mats only make sense as 2 dim objects.
+        assert len(graph_shape) == 2
         low = np.array([0 for i in graph_shape])
         hi = np.array([i for i in graph_shape])
+
         self.action_space = gym.spaces.Box(low=low, high=hi, shape=graph_shape, dtype=np.int8)
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=graph_shape, dtype=np.int8)
 
-
-    # Reset the environment to a start state---either random or provided.
-    # If the supplied adjacency matrix is not the same size as self.glass_shape, self.glass_shape is updated.
     def reset(self, start=None):
+        """
+        Reset the environment to a start state---either random or provided.
+        If the supplied graph is not the same size as self.glass_shape, self.glass_shape is updated.
+
+        :param start: A graph from which simulation begins. If None, a random start state will be generated.
+        """
         if start is not None:
             assert isinstance(start, torch.Tensor)
             start_state = start.detach().clone()
@@ -47,6 +58,12 @@ class GraphSimulator(gym.Env):
         return self.state, self.delta_e
 
     def evolve(self, sites):
+        """
+        Time evolve the current state by applying the list of sites contained in sites.
+
+        The elements of site should have the same len as self.glass_shape.
+        :param sites: A list of tuples. Each tuple contains a site to be toggled.
+        """
         sites = sites.reshape(-1, len(self.graph_shape))
         # Duplicate state so that we have a fresh copy (and we don't destroy replay data)
         next_state = self.state.detach().clone()
@@ -59,9 +76,12 @@ class GraphSimulator(gym.Env):
         energy, contrib = self.H(next_state, self.contrib, changed_sites)
         return next_state, energy, contrib
 
-    # Apply a list of edge toggles to the current state.
-    # Return the state after toggling as well as the reward.
     def step(self, action):
+        """
+        Modify the current state by applying the action to the current state.
+
+        :param action: A tuple of sites to change and the beta at which the simulation is to be run.
+        """
         sites, beta = action
         self.state, self.energy, self.contrib = self.evolve(sites)
         return self.state, 0, self.energy, False, {"contrib":self.contrib}

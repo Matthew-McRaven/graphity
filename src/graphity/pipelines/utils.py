@@ -14,6 +14,12 @@ def create_eq_task(index, beta, glass_shape, name="EQ",
 	H = graphity.environment.lattice.IsingHamiltonian()):
 	"""
 	Create a task which will evolve random lattices via a random walk and metropolis-hastings acceptance.
+
+	:param index: A unique numeric identifier for this task. Only needs to be unique between tasks being run in the same pipeline, not globally.
+	:param beta: Inverse temperature of the system being simulated.
+	:param glass_shape: Dimensions of the spin glass being simulated. Works for up to 3 dimensions, with numbers of nodes ~10k.
+	:param name: A string identifier describing the type of task (e.g., equilibriation vs ground state search.). Defaults to "EQ".
+	:param H: The Hamiltonian under which the system will be simulated., defaults to the Ising model Hamiltonian.
 	"""
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	# Equilibritation must preserve detailed-balance, which means we need to do a random walk.
@@ -34,7 +40,14 @@ def create_ground_task(index, beta, glass_shape, name="Ground Search",
 	H = graphity.environment.lattice.IsingHamiltonian()):
 	"""
 	Create a task which will search for minimum energy latticies.
+	
+	:param index: A unique numeric identifier for this task. Only needs to be unique between tasks being run in the same pipeline, not globally.
+	:param beta: Inverse temperature of the system being simulated.
+	:param glass_shape: Dimensions of the spin glass being simulated. Works for up to 3 dimensions, with numbers of nodes ~10k.
+	:param name: A string identifier describing the type of task (e.g., equilibriation vs ground state search.). Defaults to "Ground Search".
+	:param H: The Hamiltonian under which the system will be simulated., defaults to the Ising model Hamiltonian.
 	"""
+
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	ss = graphity.strategy.site.RandomSearch()
 	# By default, don't vary the temperature.

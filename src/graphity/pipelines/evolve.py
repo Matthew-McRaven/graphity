@@ -57,7 +57,8 @@ def in_equilibrium(epoch, energy_list, inner_window_size, eps=3):
 	cond = svar_cm <= svar_wni
 	# If the diagonals are less than some small value, there is no variation within a trajectory.
 	# Even if trajectories disagree with each other, we're stuck in a rut and will not make forward progress. ABORT.
-	if cond: torch.trace(cm) < eps
+	abort = torch.trace(cm) < eps
+	if cond: print("I eq'ed")
 	elif abort: print("I aborteded")
 	return cond or abort
 

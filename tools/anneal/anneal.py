@@ -65,17 +65,17 @@ if __name__ == "__main__":
 	axs[0].scatter(x_axis_data, mags, alpha=0.1)
 	# Data looks terrible when plotted on a linear scale when sampled from a logspace.
 	axs[0].set_xscale('log')
-	axs[0].set_title('Magniziation vs Beta')
+	axs[0].set_title('Mag.')
 	
 	# Set up magnetic susceptibility graph
 	axs[1].scatter(x_axis_data, ms, alpha=0.1)
 	axs[1].set_xscale('log')
-	axs[1].set_title('Magnetic Susceptibility vs Beta')
+	axs[1].set_title('Mag. Susc.')
 
 	# Set up specific heat grpah
 	axs[2].scatter(x_axis_data, c, alpha=0.1)
 	axs[2].set_xscale('log')
-	axs[2].set_title('Specific Heat vs Beta')
+	axs[2].set_title('Spef. Heat')
 
 	#############################################################
 	# Uncomment and pick an appropriate filename for the figure #

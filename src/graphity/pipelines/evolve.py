@@ -117,7 +117,7 @@ def run_ground(epoch, start_state, task):
 
 	:param epoch: The training/testing epoch are we currently on.
 	:param start_state: Initialize `task`'s environment to this state
-	:param task: An equilibriation task.
+	:param task: A ground state search task.
 	"""
 	run_helper(epoch, start_state, task)
 	rewards = np.array(task.trajectories[0].reward_buffer[:])

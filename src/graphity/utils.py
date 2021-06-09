@@ -1,8 +1,11 @@
 import functools
 
+
+import networkx as nx
+import numpy as np
 import torch.nn as nn
 import torch
-import numpy as np
+
 # Massage something that looks like a tensor, ndarray to a tensor on the correct device.
 # If given an iterable of those things, recurssively attempt to massage them into tensors.
 def torchize(maybe_tensor, device):
@@ -23,6 +26,16 @@ def is_matrix(tensor):
 # For the tensor to be square, m==n.
 def is_square(tensor):
     return tensor.shape[-1] == tensor.shape[-2]
+
+def is_pure(tensor):
+    """
+    Warning!: This requires solving an NP hard problem. 
+    This may take exponential time. 
+    Please pass in small graphs for your own sake.
+    """
+    G = nx.from_numpy_matrix(tensor.cpu().numpy())
+    sizes = nx.node_clique_number(G, [i for i in range(len(G))])
+    return all(x == sizes[0] for x in sizes)
 
 # Return if all matricies in the tensor are symmetric.
 def is_symmetric(tensor):
@@ -56,6 +69,7 @@ def all_zero_one(tensor):
 def is_adj_matrix(tensor):
     return (is_matrix(tensor) and is_square(tensor) 
             and is_symmetric(tensor) and all_zero_one(tensor))
+
 class FlattenInput(nn.Module):
     def __init__(self, input_dimension):
         super(FlattenInput, self).__init__()

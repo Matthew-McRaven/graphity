@@ -1,3 +1,4 @@
+import itertools
 import random
 
 import networkx as nx
@@ -23,6 +24,169 @@ def random_graph(graph_size, rng=None, p=.5):
 
     return torch.tensor(rand)
 
+def random_relabel(graph):
+    """
+    Randomly shuffle the labels of a graph.
+
+    :param graph: A networkx graph that is pure.
+    """
+    new_labels = [i for i in range(len(graph))]
+    random.shuffle(new_labels)
+    map_dict = {old:new for (old, new) in enumerate(new_labels)}
+    return nx.relabel_nodes(graph, map_dict)
+
+
+def _collate_max_cliques(node, cliques):
+    """
+    Get all the cliques that have node as a member
+
+    :param cliques: A list of *all* maximal cliques.
+    :param node: A node in a graph whose clique membership is to be determined.
+    """
+    return [i for i in cliques if node in i]
+
+def _add_node(G, cliques, maximal_clique_size, graph_size):
+    """
+    Add a node to a pure graph while preserving purity.
+
+        a) Randomly choose a clique from the list of maximal cliques.
+        b) Randomly remove one node from the selected clique.
+        c) Add a new node to the graph, and add edges between it an all reamining graphs in the selected clique.
+           The new node now has the correct maximal clique size (it's connected to k-1 nodes that are all connected to eachother).
+           The old nodes maximal clique size is unchanged, since no new connections between existing nodes were added.
+        d) Add the new clique to the maximal clique list.
+    
+    :param G: A networkx graph that is pure.
+    :param cliques: A list of *all* maximal cliques.
+    :param maximal_clique_size: The max clique size of the pure graph.
+    :param graph_size: The total number of nodes in the output graph.
+    """
+    #print(f"Adding node {len(G)}")
+    # Select a random clique to be used as a base for the new clique.
+    base_clique = list(random.choice(cliques))
+    # Select a random node to remove from the existing clique.
+    # This prevents the maximal clique size from growing.
+    random.shuffle(base_clique)
+    chopped_clique = base_clique[:-1]
+
+    # Add a new node and connect it to all remaining nodes in the clique.
+    new_node = len(G)
+    G.add_node(new_node)
+    G.add_edges_from([(new_node, i) for i in chopped_clique])
+
+    # Create (the only) clique involving the new node.
+    new_clique = set(chopped_clique+[new_node])
+    #print(new_node, new_clique)
+
+    # Append the newly created clique to the list of cliques.
+    cliques.append(new_clique)
+    return cliques
+
+def _add_edge(G, cliques, maximal_clique_size, graph_size):
+    """
+    Attempt to add an edge to a pure graph while maintaining purity.
+    
+    Will sample up to len(G**2) pairs of nodes, or until the an edge is successfully added.
+
+    The algorithm is as follows.
+    Sample a pair of nodes, n_1 and n_2.
+    If there's an edge between those nodes, begin again.
+    Get the list/set of cliques involving n_1 and n_2, call them c_1 and c_2.
+    
+    For c_1 and c_2, perform the following check for all pairs: If the intersection of pair_1 and pair_2 has clique_size elements,
+    then adding an edge would form a clique_size+1 sized clique. Therefore, reject the edge.
+
+    Now we must account for all cliques that will be completed by adding an edge
+    First, compute the pairwise union of c_1 and c_2.
+    If it the union has two less elements than the max clique size, the "current" set of nodes plus the two selected new nodes will form a clique
+    of the appropriate size (why?).
+
+    :param G: A networkx graph that is pure.
+    :param cliques: A list of *all* maximal cliques.
+    :param maximal_clique_size: The max clique size of the pure graph.
+    :param graph_size: The total number of nodes in the output graph.
+    """
+    attempts = 0
+    while attempts < len(G)**2:
+        attempts = attempts +1
+        n_1, n_2 = random.randint(0, len(G)-1), random.randint(0, len(G)-1)
+
+        if n_1 == n_2: continue
+        c_1 = _collate_max_cliques(n_1, cliques)
+        c_2 = _collate_max_cliques(n_2, cliques)
+        valid, overlap_nodes = True, set()
+
+        if G.has_edge(n_1, n_2): continue 
+        for (i,j) in itertools.product(k_first, k_second):
+            if len(i|j) == maximal_clique_size: valid=False
+            if len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
+        if valid and len(overlap_nodes):
+            #print("Added!!", {first, second})
+            G.add_edge(n_1, n_2)
+            new_cliques = [{j for j in i}|{n_1,n_2} for i in overlap_nodes]
+            #print(new_cliques)
+            cliques.extend(new_cliques)
+            return cliques
+    return cliques
+
+def _remove_edge(G, cliques, maximal_clique_size, graph_size):
+    """
+    Attempt to remove an edge from a pure graph while maintaining purity.
+    
+    Will sample up to len(G**2) pairs of nodes, or until the an edge is successfully deleted.
+
+    The algorithm is as follows.
+    Sample a pair of nodes, n_1 and n_2.
+    If there's no edge between those nodes, begin again.
+    Get the list/set of cliques involving n_1 and n_2, call them c_1 and c_2.
+    
+    For c_1 and c_2, check that if all cliques containg n_1 and n_2 are removed either that c_1 and c_2 have at least one clique left.
+    This check is required to prevent a removal for decreasing the maximal clique size of n_1 and n_2.
+
+    Then, compute the c_has_both, which is the set of all cliques from c_1 and c_2 that contain both n_1 and n_2.
+    Using this set, construct a set, `check` of all nodes present in c_has_both, removing n_1 and n_2.
+    For each node in this set, ensure that it has a maximal clique not involving n_1 or n_2.
+    This check ensure that a removal of an edge doesn't decrease the max clique size
+
+    :param G: A networkx graph that is pure.
+    :param cliques: A list of *all* maximal cliques.
+    :param maximal_clique_size: The max clique size of the pure graph.
+    :param graph_size: The total number of nodes in the output graph.
+    """
+    attempts = 0
+    while attempts < len(G)**2:
+        # Make progress towards termination.
+        attempts = attempts +1
+        # Sample a pair of nodes
+        n_1, n_2 = random.randint(0, len(G)-1), random.randint(0, len(G)-1)
+        # Self-loops are disallowed, so there can be no edge added/removed.
+        if n_1 == n_2: continue
+
+        # Get all the max cliques that involve the first and second nodes.
+        c_1 = _collate_max_cliques(n_1, cliques)
+        c_2 = _collate_max_cliques(n_2, cliques)
+        valid = True
+
+        if not G.has_edge(n_1, n_2): continue 
+
+        # Check that both n_1 and n_2 particiapte in some clique that doesn't involve the other
+        filt_1 = [i for i in c_1 if not (n_1 in i and n_2 in i)]
+        filt_2 = [i for i in c_2 if not (n_1 in i and n_2 in i)]
+        if not (len(filt_1) and len(filt_2)): valid=False
+        check = ({x for y in filt_1 for x in y} | {x for y in filt_2 for x in y}) - {n_1,n_2}
+        
+        # Check that other nodes have cliques not involving (n_1, n_2).
+        for x in check:
+            k_x = _collate_max_cliques(x, cliques)
+            filtered_x = [i for i in k_x if not (n_1 in i and n_2 in i)]
+            valid &= len(filtered_x) > 0
+        # Can only remove if all checks pass.
+        if valid: 
+            G.remove_edge(n_1, n_2)
+            return [x for x in cliques if not (n_1 in x and n_2 in x)]
+    # If we give up, return the original set of cliques.
+    return cliques
+
 def random_pure_graph(maximal_clique_size, graph_size):
     """
     Create a random pure graph.
@@ -30,13 +194,12 @@ def random_pure_graph(maximal_clique_size, graph_size):
     The algorithm for growing random pure graphs is as follows:
     1) Start with a complete graph of size `maximal_clique_size`.
     2) Create a list which contains all maximal cliques.
-    3) While there are insufficient nodes in the graph:
-        a) Randomly choose a clique from the list of maximal cliques.
-        b) Randomly remove one node from the selected clique.
-        c) Add a new node to the graph, and add edges between it an all reamining graphs in the selected clique.
-           The new node now has the correct maximal clique size (it's connected to k-1 nodes that are all connected to eachother).
-           The old nodes maximal clique size is unchanged, since no new connections between existing nodes were added.
-        d) Add the new clique to the maximal clique list.
+    3) While there are insufficient nodes in the graph either:
+        a) Add a node
+        b) Attempt to delete an edge. This may fail. If it fails, it will repeat 1/len(G**2), potentially giving
+        it the chance to toggle any / every edge.
+        c) Attempt to add an edge. Subject to the same failure constraints as b).
+    4) Randomly relabel the graph, to prevent the top left corner from being mostly 1's.
 
     :param maximal_clique_size: The max clique size of the pure graph.
     :param graph_size: The total number of nodes in the output graph.
@@ -47,28 +210,16 @@ def random_pure_graph(maximal_clique_size, graph_size):
     # Generate a complete graph.
     G = nx.complete_graph(maximal_clique_size)
     # Get a list of all maximal cliques, which is just the set of all nodes.
-    cliques = list(nx.find_cliques(G))
+
+    cliques = [set(i) for i in nx.find_cliques(G)]
+    #print(cliques)
 
     # Extend the graph until we hit the desired number of nodes.
-    for i in range(graph_size-maximal_clique_size):
+    while len(G) < graph_size: cliques = (random.choice([_add_node, _add_edge, _remove_edge])
+        (G, cliques, maximal_clique_size, graph_size))
 
-        # Select a random clique to be used as a base for the new clique.
-        base_clique = random.choice(cliques)
-        # Select a random node to remove from the existing clique.
-        # This prevents the maximal clique size from growing.
-        random.shuffle(base_clique)
-        chopped_clique = base_clique[:-1]
-
-        # Add a new node and connect it to all remaining nodes in the clique.
-        new_node = len(G)+1
-        G.add_node(new_node)
-        G.add_edges_from([(new_node, i) for i in chopped_clique])
-
-        # Create (the only) clique involving the new node.
-        new_clique = chopped_clique+[new_node]
-
-        # Append the newly created clique to the list of cliques.
-        cliques.append(new_clique)
+    #print(cliques)
+    G = random_relabel(G)
     return torch.tensor(nx.to_numpy_array(G))
 
 def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, p=.5):

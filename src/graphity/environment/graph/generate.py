@@ -117,7 +117,7 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size):
         valid, overlap_nodes = True, set()
 
         if G.has_edge(n_1, n_2): continue 
-        for (i,j) in itertools.product(k_first, k_second):
+        for (i,j) in itertools.product(c_1, c_2):
             if len(i|j) == maximal_clique_size: valid=False
             if len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
         if valid and len(overlap_nodes):

@@ -12,7 +12,7 @@ import graphity.environment.graph
 import graphity.data
 
 def main(args):
-	graph_size, clique_size = args.graph_size[0], args.clique_size[0]
+	graph_size, clique_size = args.graph_size, args.clique_size
 	pure_dir = f"data/pure/({clique_size}-{graph_size})"
 	impure_dir = f"data/impure/({clique_size}-{graph_size})"
 	if not os.path.exists(pure_dir) or not os.path.exists(impure_dir): 
@@ -27,9 +27,9 @@ def main(args):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Train a NN to recognize graphs')
-	parser.add_argument('-g', '--graph_size', required=True, type=int, nargs=1, help='The number nodes in each generated graph.')
-	parser.add_argument('-k', '--clique_size', required=True, type=int, nargs=1, help='The maximal clique size in each generated graph.')
-	parser.add_argument('--batch-size', default=10, type=int, nargs=1, help='The number of elements to present the neural net per update.')
-	parser.add_argument('-epochs', default=10, type=int, nargs=1, help='The number of times the entire dataset is visited.')
+	parser.add_argument('-g', '--graph_size', required=True, type=int,  help='The number nodes in each generated graph.')
+	parser.add_argument('-k', '--clique_size', required=True, type=int,  help='The maximal clique size in each generated graph.')
+	parser.add_argument('--batch-size', default=10, type=int,  help='The number of elements to present the neural net per update.')
+	parser.add_argument('--epochs', default=10, type=int,  help='The number of times the entire dataset is visited.')
 	args = parser.parse_args()
 	main(args)

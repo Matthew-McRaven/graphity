@@ -1,4 +1,5 @@
 import functools
+import math
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,15 +18,23 @@ import graphity.read_data
 import graphity.utils
 
 def conv_output_shape(h_w, kernel_size=1, stride=1, pad=0, dilation=1):
-	from math import floor
+	"""
+	Given the parameters of a 2D convolution, compute the height and width of the output.
+	"""
 	if type(kernel_size) is not tuple:
 		kernel_size = (kernel_size, kernel_size)
-	h = floor( ((h_w[0] + (2 * pad) - ( dilation * (kernel_size[0] - 1) ) - 1 )/ stride) + 1)
-	w = floor( ((h_w[1] + (2 * pad) - ( dilation * (kernel_size[1] - 1) ) - 1 )/ stride) + 1)
+	h = math.floor( ((h_w[0] + (2 * pad) - ( dilation * (kernel_size[0] - 1) ) - 1 )/ stride) + 1)
+	w = math.floor( ((h_w[1] + (2 * pad) - ( dilation * (kernel_size[1] - 1) ) - 1 )/ stride) + 1)
 	return h, w
 
 class Raw(nn.Module):
+	"""
+	Learn a Hamiltonian term that is a linear function of the input graph.
+	"""
 	def __init__(self, graph_size):
+		"""
+		:param graph_size: The number of nodes in an input graph.
+		"""
 		super().__init__()
 		self.graph_size = graph_size
 		self._M = nn.parameter.Parameter(torch.zeros((1, graph_size, graph_size)))
@@ -33,10 +42,15 @@ class Raw(nn.Module):
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
 	def apply_coef(self, x):
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		return self._M @ x
 
-	def stuff_weights(self, weights):pass
-	def weight_count(self): pass
+	def stuff_weights(self, weights):
+		self._M.weight = weights
+	def weight_count(self):
+		return functools.reduce(lambda x, y: x*y, self._M.shape, 1)
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -44,6 +58,13 @@ class Raw(nn.Module):
 
 class Conv(nn.Module):
 	def __init__(self, graph_size, rows, cols, channels=1, k=6):
+		"""
+		:param graph_size: The number of nodes in an input graph.
+		:param rows: The number of rows in the output matrix
+		:param cols: The number of columns in the output matrix.
+		:param channels: The number of channels in the convolutional layer.
+		:param k: The kernel size of the convolutional layer.
+		"""
 		super().__init__()
 		self.graph_size = graph_size
 		self.rows, self.cols = rows, cols
@@ -55,13 +76,16 @@ class Conv(nn.Module):
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
 	def apply_coef(self, x):
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		x = x.view(1,1, *x.shape)
 		x = self.conv(x)
 		x = self.lin(x.view(-1)).view(self.rows, self.cols)
 		return self.coef * x
 
-	def stuff_weights(self, weights):pass
-	def weight_count(self): pass
+	def stuff_weights(self, weights): assert(0)
+	def weight_count(self): assert(0)
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -69,6 +93,13 @@ class Conv(nn.Module):
 
 class ConvTrace(nn.Module):
 	def __init__(self, graph_size, rows, cols, channels=5, k=6):
+		"""
+		:param graph_size: The number of nodes in an input graph.
+		:param rows: The number of rows in the output matrix
+		:param cols: The number of columns in the output matrix.
+		:param channels: The number of channels in the convolutional layer.
+		:param k: The kernel size of the convolutional layer.
+		"""
 		super().__init__()
 		self.graph_size = graph_size
 		self.rows, self.cols, self.channels = rows, cols, channels
@@ -80,7 +111,9 @@ class ConvTrace(nn.Module):
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
 	def apply_coef(self, x):
-		
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		x = x.view(1,1, *x.shape)
 		x = self.conv(x).view(self.channels, self.h, self.w)
 		ret = []
@@ -94,8 +127,8 @@ class ConvTrace(nn.Module):
 		terms = (self.coef * torch.stack(ret).to(x.device).view(self.channels, self.rows, self.cols))
 		return terms.sum()
 
-	def stuff_weights(self, weights):pass
-	def weight_count(self): pass
+	def stuff_weights(self, weights): assert(0)
+	def weight_count(self): assert(0)
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -103,6 +136,10 @@ class ConvTrace(nn.Module):
 
 class ACoef(nn.Module):
 	def __init__(self, graph_size, rows, cols):
+		"""
+		:param rows: The number of rows in the output matrix
+		:param cols: The number of columns in the output matrix.
+		"""
 		super().__init__()
 		self.graph_size = graph_size
 		self.rows, self.cols = rows, cols
@@ -111,6 +148,9 @@ class ACoef(nn.Module):
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
 	def apply_coef(self, x):
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		ret = []
 		a_series = [None for _ in range (self.rows+1)]
 		a_series[0] = x @ (x)
@@ -131,6 +171,11 @@ class ACoef(nn.Module):
 
 class FACoef(nn.Module):
 	def __init__(self, graph_size, rows, cols):
+		"""
+		:param graph_size: The number of nodes in an input graph.
+		:param rows: The number of rows in the output matrix
+		:param cols: The number of columns in the output matrix.
+		"""
 		super().__init__()
 		self.graph_size = graph_size
 		self.rows, self.cols = rows, cols
@@ -139,6 +184,9 @@ class FACoef(nn.Module):
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
 	def apply_coef(self, x):
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		ret = []
 		_1 = torch.full(x.shape, 1.0, dtype=torch.float).to(x.device)
 		a_series = [None for _ in range (self.rows+1)]
@@ -159,6 +207,11 @@ class FACoef(nn.Module):
 
 class MACoef(nn.Module):
 	def __init__(self, graph_size, rows=1, cols=2):
+		"""
+		:param graph_size: The number of nodes in an input graph.
+		:param rows: The number of rows in the output matrix
+		:param cols: The number of columns in the output matrix.
+		"""
 		super().__init__()
 		self.rows, self.cols = rows, cols
 		self._M = nn.ParameterList([nn.parameter.Parameter(torch.zeros(graph_size, graph_size, dtype=torch.float)) 
@@ -172,6 +225,9 @@ class MACoef(nn.Module):
 		return self._M[r * self.cols + c]
 
 	def apply_coef(self, x):
+		"""
+		Apply this class's transformation to a single 2D input.
+		"""
 		outs = []
 		for r in range(self.rows):
 			for c in range(self.cols): 
@@ -179,8 +235,8 @@ class MACoef(nn.Module):
 				outs.append(v.trace()**(r+1))
 		return (self.coef * torch.stack(outs).to(x.device).view(self.rows, self.cols)).sum()
 
-	def stuff_weights(self, weights):pass
-	def weight_count(self): pass
+	def stuff_weights(self, weights): assert(0)
+	def weight_count(self): assert(0)
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -193,6 +249,9 @@ class SumTerm(nn.Module):
 		self.mod_list = torch.nn.ModuleList(mod_list)
 
 	def apply_coef(self, x):
+		"""
+		Apply all nested transformations in parallel to a single input.
+		"""
 		mod_sum = torch.sum(self.mod_list[0].apply_coef(x))
 		for _mod in self.mod_list[1:]: mod_sum += torch.sum(_mod.apply_coef(x))
 		return mod_sum
@@ -229,6 +288,7 @@ def evaluate(net, testloader, dev):
 				if label == prediction: correct_pred[classes[label]] += 1
 				total_pred[classes[label]] += 1
 	return correct/total, (correct_pred, total_pred)
+
 def get_best_config(pure_dir, impure_dir, graph_size, clique_size, epochs=100, batch_size=10, dev='cpu'):
 	# K-Fold cross validation from: https://www.machinecurve.com/index.php/2021/02/03/how-to-use-k-fold-cross-validation-with-pytorch/
 	dataset = graphity.data.FileGraphDataset(pure_dir, impure_dir)

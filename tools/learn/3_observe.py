@@ -14,13 +14,12 @@ def main(args):
 	##########################
 	# Modifiable parameters!!#
 	##########################
-	# Shape of the lattice
+	# Shape of the graph
 	graph_shape = (graph_size, graph_size)
-	# Number of lattices to be evolved at once.
+	# Number of graphs to be evolved at once.
 	task_count = 20
-	# Pick a lattice hamiltonian that you care about
 	# Load item from disk
-	parent = Path("data/models/nn/")
+	parent = Path(args.H[0])
 	model = torch.load(parent/f"({clique_size}-{graph_size}).pth")
 	model.eval()
 	H = graphity.environment.graph.LearnedH(model)

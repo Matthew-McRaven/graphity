@@ -13,9 +13,8 @@ def test_const_temp():
 	start_beta = beta = 5
 	strat = graphity.strategy.anneal.ConstBeta(beta)
 	for i in range(10):
-		new_beta, _ = strat(beta, 100)
+		new_beta, _ = strat(100)
 		assert new_beta == start_beta
-		beta = new_beta
 
 
 # Simulated annealing with a round length of 1.

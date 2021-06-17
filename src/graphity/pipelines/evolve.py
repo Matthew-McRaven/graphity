@@ -73,7 +73,7 @@ def run_helper(epoch, start_state, task):
 		# Defer to the task to sample a trajectory correctly.
 		task.sample(task)
 		# Let the agent clean up its internal state / modify its annealing schedule.
-		task.agent.end_sweep()
+		task.agent.end_epoch()
 		engine.state.timestep = timestep
 
 	trainer = ignite.engine.Engine(run_single_timestep)

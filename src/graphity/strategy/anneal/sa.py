@@ -24,7 +24,8 @@ class SimulatedAnnealing:
 
     def reset(self):
         self._timestep = 0
-
+    def step(self):
+        self._timestep += 1
     def __call__(self, beta, delta_e=None):
         """
         Cool the system slightly every timestep.
@@ -32,6 +33,5 @@ class SimulatedAnnealing:
         Increments the timestep on each invocation.
         """
         beta = self.T0 / (self.alpha ** np.floor(self._timestep/self.round_length))
-        self._timestep += 1
         # Log prob is 0 because there is no probabalistic nature to sampling beta.
         return beta, 0

@@ -34,6 +34,7 @@ def sample_trajectories(task):
             else: reward = torch.tensor(reward).to(task.device) # type: ignore
 
             episode.log_rewards(t, reward)
+            task.agent.end_sweep()
 
         task.add_trajectory(episode)
 

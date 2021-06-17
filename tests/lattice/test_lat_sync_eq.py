@@ -2,8 +2,10 @@ import ray
 import numpy as np
 import os
 
-import graphity.pipelines
 import matplotlib.pyplot as plt
+
+import graphity.pipelines
+import graphity.environment.lattice
 
 ###################################################
 # Test than we can perform a ground state search. #
@@ -19,31 +21,33 @@ def test_sync_eq():
 	# Declare storage locations for observables.
 	x_axis_data = []
 	mags, c, ms = [], [], []
-
+	H = graphity.environment.lattice.IsingHamiltonian()
+	spawn = graphity.pipelines.lattice.create_eq_task
+	to_spin =graphity.pipelines.lattice.to_spin
 	for beta in np.logspace(-2,.3, 10):
 		print(f"beta = {beta}")
 
 		# Create a batch of tasks for equilibriation.
 		# This sets up the environment, agent, etc correctly for a given set of parameters.
 		# Each individual lattice is a single task.
-		tasks = [graphity.pipelines.create_eq_task(idx, beta, glass_shape) for idx in range(task_count)]
+		tasks = [spawn(idx, beta, glass_shape, H) for idx in range(task_count)]
 		# Simulate all lattices until all are mostly in equilibrium or it becomes apparent that no forward progress is being made.
 		# inner_window_size needs to be smaller than outer_window_size/2
 		eq_lattices = graphity.pipelines.sync_evolver(tasks, max_epochs=100, inner_window_size=5, outer_window_size=10).run()
 
 		# Compute auto-correlation time
-		tau = graphity.pipelines.sync_autocorrelation(eq_lattices, beta, sweeps=10).run()
+		tau = graphity.pipelines.sync_autocorrelation(eq_lattices, beta, H, spawn, sweeps=10).run()
 		print(f"tau={tau}")
 		# But clamp it to something small. This is a fast-runnning regression test.
 		tau = min(tau, 5)
 		# Also clamp the number of samples to something tiny,
-		aug_lattices = graphity.pipelines.sync_augmenter(eq_lattices, beta, sweeps=tau*5).run()
+		aug_lattices = graphity.pipelines.sync_augmenter(eq_lattices, beta, H, spawn, sweeps=tau*5).run()
 
 		# Record data for chart
 		x_axis_data.extend(task_count*[beta])
-		mags.extend(graphity.pipelines.magnitization(aug_lattices))
+		mags.extend(graphity.pipelines.magnitization(aug_lattices, to_spin))
 		c.extend(graphity.pipelines.specific_heat(beta, glass_shape)(aug_lattices))
-		ms.extend(graphity.pipelines.magnetic_susceptibility(beta, glass_shape)(aug_lattices))
+		ms.extend(graphity.pipelines.magnetic_susceptibility(beta, glass_shape, to_spin)(aug_lattices))
 		print(f"beta = {beta}")
 
 	fig, axs = plt.subplots(1,3)

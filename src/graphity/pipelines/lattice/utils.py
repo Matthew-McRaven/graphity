@@ -10,8 +10,7 @@ import graphity.task
 # Helpers to create lattice / glass tasks. #
 ############################################
 
-def create_eq_task(index, beta, glass_shape, name="EQ",
-	H = graphity.environment.lattice.IsingHamiltonian()):
+def create_eq_task(index, beta, glass_shape, H, name="EQ"):
 	"""
 	Create a task which will evolve random lattices via a random walk and metropolis-hastings acceptance.
 
@@ -36,8 +35,7 @@ def create_eq_task(index, beta, glass_shape, name="EQ",
 		sampler = random_sampler,
 		trajectories=1)
 
-def create_ground_task(index, beta, glass_shape, name="Ground Search",
-	H = graphity.environment.lattice.IsingHamiltonian()):
+def create_ground_task(index, beta, glass_shape, H,name="Ground Search",):
 	"""
 	Create a task which will search for minimum energy latticies.
 	

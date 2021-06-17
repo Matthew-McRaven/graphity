@@ -35,6 +35,16 @@ def compute_betre(adj, d, keep_diag):
     # Sum over contributions, leaving us with a scalar energy.
     return torch.sum(contrib, (0,1)), contrib
 
+class LatticeAdaptor:
+    def __init__(self, graph_h):
+        self.H = graph_h
+    def contribution(self, lattice):
+        adj = (lattice * 2.0) - 1
+        return self.H.contribution(adj)
+    def __call__(self, lattice, prev_contribs=None, changed_sites=None):
+        adj = (lattice * 2.0) - 1
+        return self.H(adj, prev_contribs, changed_sites)
+
 class ASquaredD:
     """
     Implement the Hamiltonian Tr((A^2-d)^2).
@@ -88,3 +98,27 @@ class LogASquaredD(ASquaredD):
     def __call__(self, adj, prev_contrib = None, changed_sites = None):
         energy, contrib = super(LogASquaredD, self).__call__(adj, prev_contrib, changed_sites)
         return np.log(energy), contrib
+
+class LearnedH:
+    def __init__(self, SumTerm):
+        self.module = SumTerm
+    def contribution(self, adj): return None
+    # Signature-compatible with lattice hamiltonians.
+    def __call__(self, adj, prev_contribs=None, changed_sites=None):
+        """
+        Compute the energy of a spacetime graph.
+
+        While lattices have an accelerated computation, we have yet to derive one for graphs.
+        Therefore, additional arguments are only kept to remain signature-compatible with spin-glasses
+
+        :param spins: A tensor containing a spin glass. The desired change(s) has already been applied to this glass.
+        :param contribs: Ignored.
+        :param site: Ignored.
+        """
+        with torch.no_grad():
+            # At this time, I (MM) don't know how matmul will work in 3+ dims.
+            # We will fiure this out when it becomes useful.
+            if len(adj.shape) >= 3:
+                assert False and "Batched input can have at most 3 dimensions" 
+            energy = self.module(adj.view(1, *adj.shape))
+            return energy.item(), None

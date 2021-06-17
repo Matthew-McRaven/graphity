@@ -9,5 +9,6 @@ Creating ground state graphs and pure graphs is left as an exercise to the reade
 """
 
 from .generate import *
+from .learn import *
 from .reward import *
 from .sim import *

@@ -4,7 +4,7 @@ from ignite.metrics import Accuracy, Loss, accuracy
 from ignite.utils import setup_logger
 import ray
 
-import graphity.environment.lattice
+from .utils import *
 
 def augment(start_state, task, sweeps):
 	"""
@@ -53,7 +53,7 @@ class sync_augmenter:
 	Time-evolve a set of seed graphs and collect per-trajectory statistics. Runs on a single thread.
 	"""
 
-	def __init__(self, eq_lattices, beta, H=graphity.environment.lattice.IsingHamiltonian(), sweeps=1):
+	def __init__(self, eq_lattices, beta, H, sweeps=1):
 		"""
 		:param eq_lattices: List of seed graphs (that are in equilibrium) which are to be time-evolved.
 		:param beta: Inverse temperature of the system being simulated.
@@ -73,7 +73,7 @@ class sync_augmenter:
 
 		Draws configuration information from initializer.
 		"""
-		tasks = [graphity.pipelines.create_eq_task(idx, self.beta, self.eq_lattices[0].shape) for idx in range(self.count)]
+		tasks = [create_eq_task(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
 		data = [augment(self.eq_lattices[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		return data
 
@@ -81,7 +81,7 @@ class distributed_sync_augmenter:
 	"""
 	Time-evolve a set of seed graphs and collect per-trajectory statistics. Runs distributedly on the Ray runtime.
 	"""
-	def __init__(self, eq_lattices, beta, H=graphity.environment.lattice.IsingHamiltonian(), sweeps=1):
+	def __init__(self, eq_lattices, beta, H, sweeps=1):
 		"""
 		:param eq_lattices: List of seed graphs (that are in equilibrium) which are to be time-evolved.
 		:param beta: Inverse temperature of the system being simulated.
@@ -100,7 +100,7 @@ class distributed_sync_augmenter:
 
 		Draws configuration information from initializer.
 		"""
-		tasks = [graphity.pipelines.create_eq_task(idx, self.beta, self.eq_lattices[0].shape) for idx in range(self.count)]
+		tasks = [create_eq_task(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
 		data = [distributed_augment.remote(self.eq_lattices[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		# Must convert remotes' data into local copies that can be utilized by our caller.
 		data = [ray.get(datum) for datum in data]

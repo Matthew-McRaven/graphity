@@ -1,4 +1,4 @@
-
+import functools
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,6 +35,9 @@ class Raw(nn.Module):
 	def apply_coef(self, x):
 		return self._M @ x
 
+	def stuff_weights(self, weights):pass
+	def weight_count(self): pass
+
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
@@ -57,6 +60,8 @@ class Conv(nn.Module):
 		x = self.lin(x.view(-1)).view(self.rows, self.cols)
 		return self.coef * x
 
+	def stuff_weights(self, weights):pass
+	def weight_count(self): pass
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -89,6 +94,8 @@ class ConvTrace(nn.Module):
 		terms = (self.coef * torch.stack(ret).to(x.device).view(self.channels, self.rows, self.cols))
 		return terms.sum()
 
+	def stuff_weights(self, weights):pass
+	def weight_count(self): pass
 
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
@@ -113,6 +120,11 @@ class ACoef(nn.Module):
 		terms = (self.coef * torch.stack(ret).to(x.device).view(self.rows, self.cols))
 		return terms.sum()
 
+	def stuff_weights(self, weights):
+		self.coef.weight = weights
+	def weight_count(self):
+		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
+
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
@@ -128,14 +140,19 @@ class FACoef(nn.Module):
 
 	def apply_coef(self, x):
 		ret = []
-		_1 = torch.full(x.shape, 1.0, dtype=torch.float).to(dev)
+		_1 = torch.full(x.shape, 1.0, dtype=torch.float).to(x.device)
 		a_series = [None for _ in range (self.rows+1)]
 		a_series[0] = x.matmul(x)
 		for i in range(self.rows):	
 			a_series[i+1] = x.matmul(a_series[i])
 			for j in range(self.cols): ret.append(torch.trace(_1 @ (a_series[i].float()))**(j+1) / torch.numel(x)**(i+j+2))
 		return (self.coef * torch.stack(ret).to(x.device).view(self.rows, self.cols)).sum()
-		
+
+	def stuff_weights(self, weights):
+		self.coef.weight = weights
+	def weight_count(self):
+		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
+
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
@@ -162,6 +179,9 @@ class MACoef(nn.Module):
 				outs.append(v.trace()**(r+1))
 		return (self.coef * torch.stack(outs).to(x.device).view(self.rows, self.cols)).sum()
 
+	def stuff_weights(self, weights):pass
+	def weight_count(self): pass
+
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
@@ -177,21 +197,49 @@ class SumTerm(nn.Module):
 		for _mod in self.mod_list[1:]: mod_sum += torch.sum(_mod.apply_coef(x))
 		return mod_sum
 
+	def stuff_weights(self, weights):
+		assert len(weights) == self.weight_count()
+		for model in self.mod_list:
+			model.stuff_weights(weights[:model.weight_count()])
+			weights = weights[:model.weight_count()]
+
+	def weight_count(self):
+		count = 0
+		for model in self.mod_list: count += model.weight_count()
+		return count
+
 	def forward(self, x):
 		x = x.view(-1, self.graph_size, self.graph_size)
 		return torch.sigmoid(torch.stack([self.apply_coef(i) for i in x[:]]))
 
+def evaluate(net, testloader, dev):
+	classes = ('pure', 'not pure')
+	correct, total = 0, 0
+	correct_pred, total_pred = {classname: 0 for classname in classes}, {classname: 0 for classname in classes}
+	with torch.no_grad():
+		for data in testloader:
+			images, labels = data
+			images, labels = images.to(dev), labels.to(dev)
+			outputs = net(images)    
+			predictions = outputs.round()
+			total += labels.size(0)
+			correct += (predictions == labels).sum().item()
+			# collect the correct predictions for each class
+			for label, prediction in zip(labels, predictions):
+				if label == prediction: correct_pred[classes[label]] += 1
+				total_pred[classes[label]] += 1
+	return correct/total, (correct_pred, total_pred)
 def get_best_config(pure_dir, impure_dir, graph_size, clique_size, epochs=100, batch_size=10, dev='cpu'):
 	# K-Fold cross validation from: https://www.machinecurve.com/index.php/2021/02/03/how-to-use-k-fold-cross-validation-with-pytorch/
 	dataset = graphity.data.FileGraphDataset(pure_dir, impure_dir)
 	folds = KFold(n_splits=2, shuffle=True)
 
-	classes = ('pure', 'not pure')
 	print("Generated")
 	best_config, best_accuracy = 0, 0
 	for fold, (train_ids, test_ids) in enumerate(folds.split(dataset)):
 		terms = []
-		terms.append(MACoef(graph_size, rows=2, cols=1))
+		terms.append(ACoef(graph_size, rows=4, cols=2))
+		terms.append(FACoef(graph_size, rows=4, cols=2))
 		net = SumTerm(graph_size, terms)
 		net = net.to(dev)
 		criterion = nn.BCELoss()
@@ -220,24 +268,12 @@ def get_best_config(pure_dir, impure_dir, graph_size, clique_size, epochs=100, b
 					print('[%d, %5d] loss: %.3f' %
 						(epoch + 1, i + 1, running_loss / 2000))
 					running_loss = 0.0
-
-		correct, total = 0, 0
-		correct_pred, total_pred = {classname: 0 for classname in classes}, {classname: 0 for classname in classes}
-		with torch.no_grad():
-			for data in testloader:
-				images, labels = data
-				images, labels = images.to(dev), labels.to(dev)
-				outputs = net(images)    
-				predictions = outputs.round()
-				total += labels.size(0)
-				correct += (predictions == labels).sum().item()
-				# collect the correct predictions for each class
-				for label, prediction in zip(labels, predictions):
-					if label == prediction: correct_pred[classes[label]] += 1
-					total_pred[classes[label]] += 1
-		print(f'(k_{clique_size},g_{graph_size})Accuracy of the network on the {train_dataset.count} test images: {100 * correct / total}')
-		if correct/total > best_accuracy: best_config = net
-		"""for classname, correct_count in correct_pred.items():
+					
+		accuracy, (correct_pred, total_pred) = evaluate(net, testloader, dev=dev)
+		print(f'(k_{clique_size},g_{graph_size})Accuracy of the network on the {test_dataset.count} test images: {100 * accuracy}')
+		for classname, correct_count in correct_pred.items():
 			accuracy = 100 * float(correct_count) / total_pred[classname]
-			print("Accuracy for class {:5s} is: {:.1f} %".format(classname, accuracy))"""
-	return best_config, correct/total
+			print("Accuracy for class {:5s} is: {:.1f} %".format(classname, accuracy))
+		if accuracy > best_accuracy: best_config = net
+
+	return best_config, accuracy

@@ -33,7 +33,7 @@ def main(args):
 	graph_size, clique_size = args.graph_size[0], args.clique_size[0]
 
 	# Load item from disk
-	parent = Path("data/models/nn/")
+	parent = Path(args.H[0])
 	model = torch.load(parent/f"({clique_size}-{graph_size}).pth")
 	model.eval()
 	
@@ -51,6 +51,6 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Train a NN to recognize graphs')
 	parser.add_argument('-g', '--graph_size', required=True, type=int, nargs=1, help='The number nodes in each generated graph.')
 	parser.add_argument('-k', '--clique_size', required=True, type=int, nargs=1, help='The maximal clique size in each generated graph.')
-	parser.add_argument('--H', required=True, type=str, nargs=1, help='The trained Hamiltonian to load.')
+	parser.add_argument('-H', required=True, type=str, nargs=1, help='Base path to the trained Hamiltonian to load.')
 	args = parser.parse_args()
 	main(args)

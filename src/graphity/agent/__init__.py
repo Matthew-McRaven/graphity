@@ -5,6 +5,13 @@ Contains all the agents we can use.
 """
 
 def add_agent_attr(policy_based=False, allow_update=False):
+    """
+    A decorator that automatically adds attributes to a class.
+    These attributes are useful for detecting if an agent is machine-learnable.
+    
+    :param policy_based: Is the agent powered by a policy-base method? If so, the policy must be tracked in replay memory.
+    :param allow_update: Can the agent be trained? As of 20210617, no agents are trainable.
+    """
     def deco(cls):
         attrs = {}
         attrs['policy_based'] = policy_based

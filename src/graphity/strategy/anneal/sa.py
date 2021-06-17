@@ -26,7 +26,7 @@ class SimulatedAnnealing:
         self._timestep = 0
     def step(self):
         self._timestep += 1
-    def __call__(self, beta, delta_e=None):
+    def __call__(self, delta_e=None):
         """
         Cool the system slightly every timestep.
 

@@ -1,9 +1,7 @@
 import functools
 import numpy as np
 
-from .utils import *
-
-def magnitization(trajectories):
+def magnitization(trajectories, to_spin):
 	"""
 	Compute the average spin (magnitization) of the last element of a trajectory.
 
@@ -22,7 +20,7 @@ class magnetic_susceptibility:
 	"""
 	Functor to compute the variance of magnitization (aka the magnetic susceptibility).
 	"""
-	def __init__(self, beta, glass_shape):
+	def __init__(self, beta, glass_shape, to_spin):
 		"""
 		Initializer for a magnetic susceptibility computation. Stores parameters needed for regularization.
 
@@ -31,6 +29,7 @@ class magnetic_susceptibility:
 		"""
 		self.beta = beta
 		self.glass_shape = glass_shape
+		self.to_spin = to_spin
 
 	def __call__(self, trajectories):
 		"""
@@ -45,7 +44,7 @@ class magnetic_susceptibility:
 			for t in trajectories[idx]:
 				# Compute the average spin (aka magnitization). Must cast to float because spins are ints, 
 				# and mean() doesn't work on ints.
-				mags.append(to_spin(t['state']).float().mean())
+				mags.append(self.to_spin(t['state']).float().mean())	
 			# See section 3.3 of online book
 			mag_sus = self.beta* num_spins * np.var(mags)
 			ms.append(mag_sus)
@@ -74,6 +73,7 @@ class specific_heat:
 			energies, variances = [], []
 			for t in trajectories[idx]:
 				energies.append(t['energy'])
+
 			# See section 3.4 of online book
 			specific_heat = np.var(energies) * self.beta**2 / num_spins
 			c.append(specific_heat)

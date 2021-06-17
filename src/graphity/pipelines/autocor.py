@@ -8,7 +8,6 @@ import torch
 import ray
 
 from .aug import *
-from .utils import *
 def chi(t, t_max, trajectory):
 	scale = (1/t_max - t)
 	term_0, term_1, term_2 = torch.tensor(0.),torch.tensor(0.),torch.tensor(0.)
@@ -20,14 +19,15 @@ def chi(t, t_max, trajectory):
 	assert torch.is_tensor(ret)
 	return ret
 class sync_autocorrelation:
-	def __init__(self, eq_lattices, beta, H, sweeps=100):
+	def __init__(self, eq_lattices, beta, H, spawn, sweeps=100):
 		self.beta = beta
 		self.count = len(eq_lattices)
 		self.eq_lattices = eq_lattices
 		self.H = H
+		self.spawn = spawn
 		self.sweeps = sweeps
 	def run(self,):
-		tasks = [create_eq_task(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
+		tasks = [self.spawn(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
 		trajectories = [augment(self.eq_lattices[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		autocorrelation_times = []
 		for trajectory in trajectories:
@@ -45,14 +45,15 @@ class sync_autocorrelation:
 
 
 class distributed_sync_autocorrelation:
-	def __init__(self, eq_lattices, beta, H, sweeps=100):
+	def __init__(self, eq_lattices, beta, H, spawn, sweeps=100):
 		self.beta = beta
 		self.count = len(eq_lattices)
 		self.eq_lattices = eq_lattices
 		self.H = H
+		self.spawn = spawn
 		self.sweeps = sweeps
 	def run(self,):
-		tasks = [create_eq_task(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
+		tasks = [self.spawn(idx, self.beta, self.eq_lattices[0].shape, self.H) for idx in range(self.count)]
 		trajectories = [distributed_augment.remote(self.eq_lattices[idx], task, self.sweeps) for idx, task in enumerate(tasks)]
 		autocorrelation_times = []
 		for trajectory in trajectories:

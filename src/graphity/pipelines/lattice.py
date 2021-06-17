@@ -59,3 +59,5 @@ def create_ground_task(index, beta, glass_shape, H,name="Ground Search",):
 		number = index,
 		sampler = random_sampler,
 		trajectories=1)
+		
+def to_spin(tensor): return tensor

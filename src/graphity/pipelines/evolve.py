@@ -14,7 +14,6 @@ import torch
 
 from graphity.environment.lattice import reward
 
-from .utils import *
 def in_equilibrium(epoch, energy_list, inner_window_size, eps=3):
 	"""
 	Determine if a set of trajectories are probably in equilibrium.

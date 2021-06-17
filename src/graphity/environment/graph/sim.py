@@ -86,13 +86,13 @@ class GraphSimulator(gym.Env):
 
 class RejectionSimulator(GraphSimulator):
     """
-    A simulator for spin glasses which conditionally accepts spin flips according to metropolis-hastings.
-    You may choose any hamiltonian designed for spin glasses.
+    A simulator for spacetime graphs which conditionally accepts spin flips according to metropolis-hastings.
+    You may choose any hamiltonian designed for spacetime graphs.
     """
     def __init__(self, H, graph_shape=(4,4), allow_cuda=False):
         """
-        :param H: A Hamiltonian designed for spin glasses.
-        :param graph_shape: The dimension of spin glasses to be used in the simulator.
+        :param H: A Hamiltonian designed for spacetime graphs.
+        :param graph_shape: The dimension of spacetime grpahs to be used in the simulator.
         :param allow_cuda: Can we do computations on the GPU? Currently ignored (2021-06-03).
         """
 

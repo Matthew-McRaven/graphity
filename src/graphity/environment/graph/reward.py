@@ -90,6 +90,10 @@ class LogASquaredD(ASquaredD):
         return np.log(energy), contrib
 
 class LearnedH:
+    """
+    Apply a learned H to spacetime graphs.
+    The learned H must be a graphity.environment.graph.learn.SumTerm object.
+    """
     def __init__(self, SumTerm):
         self.module = SumTerm
     def contribution(self, adj): return None
@@ -99,7 +103,7 @@ class LearnedH:
         Compute the energy of a spacetime graph.
 
         While lattices have an accelerated computation, we have yet to derive one for graphs.
-        Therefore, additional arguments are only kept to remain signature-compatible with spin-glasses
+        Therefore, additional arguments are only kept to remain signature-compatible with spin-glasses.
 
         :param spins: A tensor containing a spin glass. The desired change(s) has already been applied to this glass.
         :param contribs: Ignored.

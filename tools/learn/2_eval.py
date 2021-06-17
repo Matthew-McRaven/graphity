@@ -3,24 +3,45 @@ import os
 from pathlib import Path
 import random
 
-import networkx as nx
-from networkx.algorithms import clique
-from sklearn.model_selection import KFold
+import numpy as np
+from sklearn.model_selection import KFold, StratifiedShuffleSplit
 from sklearn import datasets, svm, metrics, decomposition, neighbors, linear_model
 from sklearn.model_selection import train_test_split
 import torch
 
 import graphity.environment.graph
 import graphity.data
+def aug(data, labels):
+	count_0, count_1 = 0,0
+	for label in labels:
+		if label == 0: count_0 += 1
+		else: count_1 += 1
+
+	diff = count_1 - count_0
+	to_add = []
+
+	if count_0 == 0 or diff // count_0 == 0: return []
+
+	for (label, item) in zip(labels, data):
+		if label == 0:to_add.extend([(0, item) for _ in range(diff//count_0)])
+	return to_add
 def classify(H, dataset):
 	clf = svm.SVC()
 	data, target = [], []
 	for value, label in dataset:
-		data.append(H(value.float()).detach().view(-1).numpy() )
+		data.append(H(value.float()).detach().view(-1).numpy())
 		target.append(label)
 
 	X_train, X_test, y_train, y_test = train_test_split(
-		data, target, test_size=0.5, shuffle=True)
+		data, target, test_size=0.25, shuffle=True)
+
+	# Over sample minority class to prevent wild class imbalance.
+	for (label, data) in aug(X_train, y_train):
+		X_train.append(data)
+		y_train.append(label)
+	for (label, data) in aug(X_test, y_test):
+		X_test.append(data)
+		y_test.append(label)
 
 	clf.fit(X_train, y_train)
 	

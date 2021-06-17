@@ -56,7 +56,7 @@ def main(args):
 		tau = min(tau, 10)
 
 		# From the collection of lattices that equilibriated above, evolve them for another tau*50 sweeps and collect all of the intermediate steps.
-		aug_lattices = pipelines.distrivuted_sync_augmenter(eq_lattices, beta, H, spawn, sweeps=tau*10).run()
+		aug_lattices = pipelines.distributed_sync_augmenter(eq_lattices, beta, H, spawn, sweeps=tau*10).run()
 
 		# Record data for charts
 		x_axis_data.extend(task_count*[beta])

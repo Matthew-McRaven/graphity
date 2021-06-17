@@ -34,17 +34,7 @@ def compute_betre(adj, d, keep_diag):
     contrib = contribution(adj, d, keep_diag)
     # Sum over contributions, leaving us with a scalar energy.
     return torch.sum(contrib, (0,1)), contrib
-
-class LatticeAdaptor:
-    def __init__(self, graph_h):
-        self.H = graph_h
-    def contribution(self, lattice):
-        adj = (lattice * 2.0) - 1
-        return self.H.contribution(adj)
-    def __call__(self, lattice, prev_contribs=None, changed_sites=None):
-        adj = (lattice * 2.0) - 1
-        return self.H(adj, prev_contribs, changed_sites)
-
+    
 class ASquaredD:
     """
     Implement the Hamiltonian Tr((A^2-d)^2).

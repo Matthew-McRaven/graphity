@@ -40,7 +40,7 @@ class MemoryGraphDataset(Dataset):
 			else: count_1 += 1
 		diff = count_1 - count_0
 		to_add = []
-		if diff // count_0 == 0: return []
+		if count_0 == 0 or diff // count_0 == 0: return []
 		for (label, item) in dataset:
 			if label == 0:to_add.extend([(0, item) for _ in range(diff//count_0)])
 		return to_add

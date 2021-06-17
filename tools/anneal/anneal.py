@@ -4,7 +4,7 @@ import numpy as np
 import ray
 
 # All imports from modules we wrote ourselves. Alphabatized, one per line.
-import graphity.pipelines.lattice as pipelines
+import graphity.pipelines as pipelines
 import graphity.environment.lattice
 
 # If you want to save the results to a file, go to the end and uncomment the line `plt.savefig(...)`.
@@ -17,8 +17,8 @@ if __name__ == "__main__":
 	# Number of lattices to be evolved at once.
 	task_count = 20
 	# Pick a lattice hamiltonian that you care about
-	#H = graphity.environment.lattice.ConstInfiniteRangeHamiltonian()
-	H = graphity.environment.lattice.IsingHamiltonian()
+	H = graphity.environment.lattice.ConstInfiniteRangeHamiltonian()
+	#H = graphity.environment.lattice.IsingHamiltonian()
 
 	# Connect to our disributed runtime
 	ray.init(address='auto')
@@ -26,33 +26,36 @@ if __name__ == "__main__":
 	# Declare storage locations for observables.
 	x_axis_data = []
 	mags, c, ms = [], [], []
+	
+	spawn = graphity.pipelines.lattice.create_eq_task
+	to_spin = graphity.pipelines.lattice.to_spin
 
 	# Iterate over betas that are distibuted logrithmically (More closer to left, fewer to the right).
-	for beta in np.logspace(-2,.3, 50):
+	for beta in np.logspace(-8,.3, 100):
 		print(f"beta = {beta}")
 
 		# Create a batch of tasks for equilibriation.
 		# This sets up the environment, agent, etc correctly for a given set of parameters.
 		# Each individual lattice is a single task.
-		tasks = [pipelines.create_eq_task(idx, beta, glass_shape, H=H) for idx in range(task_count)]
+		tasks = [spawn(idx, beta, glass_shape, H=H) for idx in range(task_count)]
 		# Simulate all lattices until all are mostly in equilibrium or it becomes apparent that no forward progress is being made.
 		# inner_window_size needs to be smaller than outer_window_size/2
 		eq_lattices = pipelines.distributed_sync_evolver(tasks, max_epochs=1000, inner_window_size=5, outer_window_size=10).run()
 
 		# Compute auto-correlation time
-		tau = pipelines.distributed_sync_autocorrelation(eq_lattices, beta, H, sweeps=10).run()
+		tau = pipelines.distributed_sync_autocorrelation(eq_lattices, beta, H, spawn, sweeps=10).run()
 		print(f"tau={tau}")
 		# But clamp it to something reasonable. We don't have forever.
 		tau = min(tau, 20)
 
 		# From the collection of lattices that equilibriated above, evolve them for another tau*50 sweeps and collect all of the intermediate steps.
-		aug_lattices = pipelines.distributed_sync_augmenter(eq_lattices, beta, H, sweeps=tau*50).run()
+		aug_lattices = pipelines.distributed_sync_augmenter(eq_lattices, beta, H, spawn, sweeps=tau*50).run()
 
 		# Record data for charts
 		x_axis_data.extend(task_count*[beta])
-		mags.extend(pipelines.lattices.magnitization(aug_lattices))
-		c.extend(pipelines.specific_heat(beta, glass_shape)(aug_lattices))
-		ms.extend(pipelines.magnetic_susceptibility(beta, glass_shape)(aug_lattices))
+		mags.extend(pipelines.magnitization(aug_lattices, to_spin))
+		c.extend(pipelines.specific_heat(beta, graph_shape)(aug_lattices))
+		ms.extend(pipelines.magnetic_susceptibility(beta, graph_shape, to_spin)(aug_lattices))
 		print(f"beta = {beta}")
 
 	# Create a plot object with 3 subfigures in a single row.
@@ -80,6 +83,6 @@ if __name__ == "__main__":
 	#############################################################
 	# Uncomment and pick an appropriate filename for the figure #
 	#############################################################
-	#plt.savefig("inf-range-ising-glass.png")
+	plt.savefig("inf-range-ising-glass.png")
 	plt.show()
 

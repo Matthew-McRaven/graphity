@@ -1,13 +1,17 @@
-import functools
-
 import networkx as nx
 import numpy as np
-import torch.nn as nn
 import torch
 
-# Massage something that looks like a tensor, ndarray to a tensor on the correct device.
-# If given an iterable of those things, recurssively attempt to massage them into tensors.
+
 def torchize(maybe_tensor, device):
+    """
+    Massage something that looks like a tensor, ndarray to a tensor on the correct device.
+    If given an iterable of those things, recurssively attempt to massage them into tensors.
+    Returns a tensor with the same values as maybe_tensor.
+
+    :param maybe_tensor: An array-like object.
+    :param device: A valid torch device on whihc tensors are to be stored.
+    """
     # Sometimes an object is a torch tensor that just needs to be moved to the right device
     if torch.is_tensor(maybe_tensor): return maybe_tensor.to(device)
     # Sometimes it is an ndarray
@@ -17,13 +21,23 @@ def torchize(maybe_tensor, device):
     elif maybe_tensor is None: return None
     else: raise NotImplementedError(f"Don't understand the datatype of {type(maybe_tensor)}")
 
-# A tensor must have 2 dims to be considered a matrix.
 def is_matrix(tensor):
+    """
+    Check if the tensor is 2D. 
+    If so, it is a matrix.
+
+    :param tensor: A torch.Tensor of unknown shape.
+    """
     return len(tensor.shape) == 2
 
-# If we have a tensor of matricies, the last two dims correspond to mXn of the matrix.
-# For the tensor to be square, m==n.
+
 def is_square(tensor):
+    """
+    If we have a tensor of matricies, the last two dims correspond to m x n of the matrix.
+    For the tensor to be square, m==n.
+
+    :param tensor: A torch.Tensor of unknown shape.
+    """
     return tensor.shape[-1] == tensor.shape[-2]
 
 def is_pure(tensor):
@@ -31,13 +45,22 @@ def is_pure(tensor):
     Warning!: This requires solving an NP hard problem. 
     This may take exponential time. 
     Please pass in small graphs for your own sake.
+
+    Determines if the input graph is pure.
+    For a graph to be pure, the maximal clique number at every site must be the same size.
+
+    :param tensor: A torch.Tensor containing all {0, 1}.
+    This tensor's maximal clique size and purity status is not known.
     """
     G = nx.from_numpy_matrix(tensor.cpu().numpy())
     sizes = nx.node_clique_number(G, [i for i in range(len(G))])
     return all(x == sizes[0] for x in sizes)
 
-# Return if all matricies in the tensor are symmetric.
+# 
 def is_symmetric(tensor):
+    """
+    Return if all matricies in the tensor are symmetric about their diagonal.
+    """
     # Maybe batching has has given us more than 3 dims. If so, flatten it.
     tensor = tensor.view(-1, tensor.shape[-1], tensor.shape[-2])
     # iterate over all matricies, and all indicies
@@ -63,16 +86,12 @@ def all_zero_one(tensor):
     x = torch.all(torch.eq(tensor, 1) | torch.eq(tensor, 0)).item()
     return x
 
-# A tensor can be considered a adjacency matrix if it has 2 dimensions
-# of the same size. Additionally, it must be symmetric with all entries in {0, 1}
 def is_adj_matrix(tensor):
+    """
+    A tensor can be considered a adjacency matrix if it has 2 dimensions
+    of the same size. Additionally, it must be symmetric with all entries in {0, 1}
+
+    :param tensor: A torch.Tensor containing all {0, 1}.
+    """
     return (is_matrix(tensor) and is_square(tensor) 
             and is_symmetric(tensor) and all_zero_one(tensor))
-
-class FlattenInput(nn.Module):
-    def __init__(self, input_dimension):
-        super(FlattenInput, self).__init__()
-        self.input_dimensions = input_dimension
-        self.output_dimension = (functools.reduce(lambda x,y: x*y, input_dimension, 1),)
-    def forward(self, input):
-        return input.view(-1)

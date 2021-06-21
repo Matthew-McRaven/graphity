@@ -36,6 +36,14 @@ def create_eq_task(index, beta, graph_shape, H, name="EQ",):
 		sampler = random_sampler,
 		trajectories=1)
 
-def to_spin(state):
-	state[state==0] = -1
-	return state
+def to_spin(graph):
+	"""
+	Convert a lattice to a spin glass.
+
+	This is accomplished by replacing any not-edges with a -1 spin.
+	Present edges become a +1 spin.
+
+	:parameter graph: A 2D tensor containing all {0, 1}.
+	"""
+	graph[graph==0] = -1
+	return graph

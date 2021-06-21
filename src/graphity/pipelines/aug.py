@@ -43,7 +43,7 @@ def distributed_augment(start_state, task, sweeps):
 	
 	:param start_state: Seed graph for the simulation.
 	:param task: An object which contains an environment, agent, and possesses the ability to sample rollouts. See graphity.task.
-	:param sweeps: Number of (state, energy) pairs to collect.
+	:param sweeps: Number of (state, energy) pairs to collect for each seed graph.
 	"""
 	return augment(start_state, task, sweeps)
 
@@ -58,7 +58,7 @@ class sync_augmenter:
 		:param beta: Inverse temperature of the system being simulated.
 		:param H: The Hamiltonian under which the system will be simulated.
 		:param spawn: A function which will return a new equilibriation task.
-		:param sweeps: Number of (state, energy) pairs to collect.
+		:param sweeps: Number of (state, energy) pairs to collect for each seed graph.
 		"""
 
 		self.beta = beta
@@ -88,7 +88,7 @@ class distributed_sync_augmenter:
 		:param beta: Inverse temperature of the system being simulated.
 		:param H: The Hamiltonian under which the system will be simulated.
 		:param spawn: A function which will return a new equilibriation task.
-		:param sweeps: Number of (state, energy) pairs to collect.
+		:param sweeps: Number of (state, energy) pairs to collect for each seed graph.
 		"""
 		self.beta = beta
 		self.count = len(eq_lattices)

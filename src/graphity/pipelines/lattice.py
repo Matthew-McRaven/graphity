@@ -45,7 +45,6 @@ def create_ground_task(index, beta, glass_shape, H,name="Ground Search",):
 	:param name: A string identifier describing the type of task (e.g., equilibriation vs ground state search.). Defaults to "Ground Search".
 	:param H: The Hamiltonian under which the system will be simulated., defaults to the Ising model Hamiltonian.
 	"""
-
 	random_sampler = graphity.task.RandomGlassSampler(glass_shape)
 	ss = graphity.strategy.site.RandomSearch()
 	# By default, don't vary the temperature.
@@ -60,4 +59,13 @@ def create_ground_task(index, beta, glass_shape, H,name="Ground Search",):
 		sampler = random_sampler,
 		trajectories=1)
 		
-def to_spin(tensor): return tensor
+def to_spin(tensor):
+	"""
+	Convert a spin glass to a spin glass.
+	This is trivially a no-operation.
+
+	Needed to fulfill the API on statistics.
+
+	:parameter tensor: A 2D tensor containing all {-1, 1}.
+	"""
+	return tensor

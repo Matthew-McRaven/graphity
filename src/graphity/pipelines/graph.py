@@ -27,7 +27,7 @@ def create_eq_task(index, beta, graph_shape, H, name="EQ",):
 	# By default, don't vary the temperature.
 	agent = graphity.agent.det.ForwardAgent(ConstBeta(beta), ss)	
 	# Use a simulator with metropolis-hastings acceptance to preserve detailed-balance.
-	return graphity.task.GlassTask(
+	return graphity.task.GraphTask(
 		agent=agent, env=graphity.environment.graph.RejectionSimulator(graph_shape=graph_shape, H=H),
 		# The number of toggles is equal to twice the product of the dimension of the glass
 		episode_length=functools.reduce(lambda prod,item: prod*item, graph_shape,2),

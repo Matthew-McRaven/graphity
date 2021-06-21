@@ -44,7 +44,7 @@ class ContinuousControlTask(Task):
     #episode_count=property(_Task.batch_size, _Task.batch_size)
 
     # Use sample_trajectories as the default sample, unless otherwise specified.
-    def __init__(self, sample_fn = sample_trajectories, replay_ctor=graphity.replay.MemoizedEpisode, 
+    def __init__(self, replay_ctor, *, sample_fn = sample_trajectories, 
     env=None, agent=None, trajectories=1, episode_length=100, **kwargs):
         super(ContinuousControlTask,self).__init__(**kwargs)
         assert env is not None and agent is not None

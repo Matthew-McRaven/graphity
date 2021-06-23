@@ -289,20 +289,16 @@ def evaluate(net, testloader, dev):
 				total_pred[classes[label]] += 1
 	return correct/total, (correct_pred, total_pred)
 
-def get_best_config(pure_dir, impure_dir, graph_size, clique_size, epochs=100, batch_size=10, dev='cpu'):
+def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epochs=100, batch_size=10, dev='cpu', n_splits=2):
 	# K-Fold cross validation from: https://www.machinecurve.com/index.php/2021/02/03/how-to-use-k-fold-cross-validation-with-pytorch/
 	dataset = graphity.data.FileGraphDataset(pure_dir, impure_dir)
-	folds = KFold(n_splits=2, shuffle=True)
-
+	folds = KFold(n_splits=n_splits, shuffle=True)
+	all_accuracy = []
 	print("Generated")
 	best_config, best_accuracy = 0, 0
 	for fold, (train_ids, test_ids) in enumerate(folds.split(dataset)):
-		terms = []
-		terms.append(ACoef(graph_size, rows=4, cols=2))
-		terms.append(FACoef(graph_size, rows=4, cols=2))
-		net = SumTerm(graph_size, terms)
-		net = net.to(dev)
 		criterion = nn.BCELoss()
+		net = net_fn()
 		optimizer = optim.Adam(net.parameters(), lr=0.001)
 
 		# Augment our pure graphs, so that there are roughly as many pure graphs as there are non-pure graphs
@@ -324,16 +320,17 @@ def get_best_config(pure_dir, impure_dir, graph_size, clique_size, epochs=100, b
 				optimizer.step()
 				
 				running_loss += loss.item()
-				if i % 100 == 99:    # print every 1000 mini-batches
+				if i % 10000 == 9999:    # print every 1000 mini-batches
 					print('[%d, %5d] loss: %.3f' %
 						(epoch + 1, i + 1, running_loss / 2000))
 					running_loss = 0.0
 					
 		accuracy, (correct_pred, total_pred) = evaluate(net, testloader, dev=dev)
+		all_accuracy.append(accuracy)
 		print(f'(k_{clique_size},g_{graph_size})Accuracy of the network on the {test_dataset.count} test images: {100 * accuracy}')
 		for classname, correct_count in correct_pred.items():
 			accuracy = 100 * float(correct_count) / total_pred[classname]
 			print("Accuracy for class {:5s} is: {:.1f} %".format(classname, accuracy))
 		if accuracy > best_accuracy: best_config = net
 
-	return best_config, accuracy
+	return best_config, best_accuracy, all_accuracy

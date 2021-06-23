@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import multiprocessing
 import os
 from pathlib import Path
 import random
@@ -14,42 +15,65 @@ import graphity.environment.graph
 import graphity.data
 from graphity.environment.graph.learn import *
 
-def main(args):
-	
-	graph_size, clique_size = args.graph_size, args.clique_size
-	pure_dir = f"data/pure/({clique_size}-{graph_size})"
-	impure_dir = f"data/impure/({clique_size}-{graph_size})"
+def blargh(args):
+	best_acc, best_config = 0,0
+	i,j,k,l = args['terms']
+	graph_size, clique_size = args['graph_size'], args['clique_size']
+	pure_dir, impure_dir = args['pure_dir'], args['impure_dir']
 	if not os.path.exists(pure_dir) or not os.path.exists(impure_dir): 
 		raise ValueError("Dataset directories must exist. Please run 0_generate.py with the same g,k.")
-	best_acc, best_config, best_terms = 0,0, 0
-	results = {}
-	for (i,j) in itertools.product(range(1,4), range(1,3)):
-		for (k,l) in itertools.product(range(1,4), range(1,3)):
-			if not (i,j,k,l) in results: results[(i,j,k,l)] = []
-			def get_nn():
-				terms = []
-				terms.append(ACoef(graph_size, rows=i, cols=j))
-				terms.append(FACoef(graph_size, rows=k, cols=l))
-				net = SumTerm(graph_size, terms)
-				net = net.to(args.device)
-				return net
-			print(f"With terms {(i,j,k,l)}")
-			config, acc, all_acc = graphity.environment.graph.get_best_config(pure_dir, impure_dir, graph_size, clique_size, get_nn,
-			batch_size=args.batch_size, epochs=args.epochs, dev=args.device, n_splits=10)
-			results[(i,j,k,l)].append(all_acc)
-			if best_acc < acc: best_acc, best_config, best_terms = acc, config, (i,j,k,l)
-			g, m, s = round(statistics.geometric_mean(all_acc),3),  round(statistics.median(all_acc),3), round(statistics.pstdev(all_acc),3)
-			print(f"{(i,j,k,l)} ::: GMean {g}, Median {m}, STD {s}")
-			print("\n\n")
-	print(f"Best accuracy was {best_acc} with terms {best_terms}")
-	for k, v in results.items():
-		g, m, s = round(statistics.geometric_mean(v),3),  round(statistics.median(v),3), round(statistics.pstdev(v),3)
-		print(f"{k} ::: GMean {g}, Median {m}, STD {s}")
+	def get_nn():
+		terms = []
+		terms.append(ACoef(graph_size, rows=i, cols=j))
+		terms.append(FACoef(graph_size, rows=k, cols=l))
+		net = SumTerm(graph_size, terms)
+		net = net.to(args['device'])
+		return net
+	#print(f"With terms {(i,j,k,l)}")
+	config, acc, all_acc = graphity.environment.graph.get_best_config(pure_dir, impure_dir, graph_size, clique_size, get_nn,
+	batch_size=args['batch_size'], epochs=args['epochs'], dev=args['device'], n_splits=2)
+	if best_acc > acc: best_acc, best_config, best_terms = acc, config, (i,j,k,l)
+	g, m, s = round(statistics.geometric_mean(all_acc),3),  round(statistics.median(all_acc),3), round(statistics.pstdev(all_acc),3)
+	#print(f"{(i,j,k,l)} ::: GMean {g}, Median {m}, STD {s}")
+	#print("\n\n")
 	# Save items to disk
 	parent = Path("data/models/nn/")
 	parent.mkdir(parents=True, exist_ok=True)
 	if(os.path.exists(parent/f"({clique_size}-{graph_size}).pth")): os.remove(parent/f"({clique_size}-{graph_size}).pth")
 	torch.save(best_config, parent/f"({clique_size}-{graph_size}).pth")
+	return (i,j,k,l), all_acc
+
+def main(args):
+	graph_size, clique_size = args.graph_size, args.clique_size
+
+	results = {}
+	must_hold = []
+	procs, procs_ret = [], []
+	with multiprocessing.Manager() as manager:
+		with multiprocessing.Pool(processes=16) as pool:
+			for (i,j, k, l) in itertools.product(range(1,5), range(1,5), range(1,5), range(1,5)):
+				pargs = manager.dict()
+				# MUST NOT DISCARD SOMETHING GIVEN TO US BY MANAGER
+				# See: https://stackoverflow.com/a/60795334
+				must_hold.append(pargs)
+				pargs['terms'] = (i,j,k,l)
+				pargs['pure_dir'] = f"data/pure/({clique_size}-{graph_size})"
+				pargs['impure_dir'] = f"data/impure/({clique_size}-{graph_size})"
+				pargs['clique_size'] = clique_size
+				pargs['graph_size'] = graph_size
+				pargs['batch_size'] = args.batch_size
+				pargs['epochs'] = args.epochs
+				pargs['device'] = args.device
+				procs.append(pool.apply_async(blargh, (pargs,)))
+			for p in procs: procs_ret.append(p.get())
+			pool.close()
+			pool.join()
+
+	for (terms, _1, _2, all_a) in procs_ret:results[terms] = all_a
+	for k, v in results.items():
+		g, m, s = round(statistics.geometric_mean(v),3),  round(statistics.median(v),3), round(statistics.pstdev(v),3)
+		print(f"{k} ::: GMean {g}, Median {m}, STD {s}")
+
 
 
 if __name__ == "__main__":

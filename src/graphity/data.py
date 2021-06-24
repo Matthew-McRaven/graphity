@@ -95,10 +95,11 @@ class FileGraphDataset(Dataset):
 			path = (Path(pure_dir)/f).resolve()
 			if not path.is_file(): continue
 			things.append((0,torch.load(path)))
-		for f in os.listdir(impure_dir):
-			path = (Path(impure_dir)/f).resolve()
-			if not path.is_file(): continue
-			not_things.append((1,torch.load(path)))
+		if impure_dir:
+			for f in os.listdir(impure_dir):
+				path = (Path(impure_dir)/f).resolve()
+				if not path.is_file(): continue
+				not_things.append((1,torch.load(path)))
 
 		self.data = things+not_things
 		random.shuffle(self.data)

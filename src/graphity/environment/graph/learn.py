@@ -92,7 +92,7 @@ class Conv(nn.Module):
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
 
 class ConvTrace(nn.Module):
-	def __init__(self, graph_size, rows, cols, channels=5, k=6):
+	def __init__(self, rows, cols, channels=5, k=6):
 		"""
 		:param graph_size: The number of nodes in an input graph.
 		:param rows: The number of rows in the output matrix
@@ -101,12 +101,10 @@ class ConvTrace(nn.Module):
 		:param k: The kernel size of the convolutional layer.
 		"""
 		super().__init__()
-		self.graph_size = graph_size
 		self.rows, self.cols, self.channels = rows, cols, channels
 		self.coef = nn.parameter.Parameter(torch.zeros((channels, rows, cols)))
 		self.conv = torch.nn.Conv2d(1, channels, (k,k))
-		hw = conv_output_shape((graph_size, graph_size), (k,k))
-		self.h, self.w = hw[0], hw[1]
+
 		for x in self.parameters():
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
@@ -131,17 +129,17 @@ class ConvTrace(nn.Module):
 	def weight_count(self): assert(0)
 
 	def forward(self, x):
-		x = x.view(-1, self.graph_size, self.graph_size)
+		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		elif len(x.shape) > 3: assert 0
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
 
 class ACoef(nn.Module):
-	def __init__(self, graph_size, rows, cols):
+	def __init__(self, rows, cols):
 		"""
 		:param rows: The number of rows in the output matrix
 		:param cols: The number of columns in the output matrix.
 		"""
 		super().__init__()
-		self.graph_size = graph_size
 		self.rows, self.cols = rows, cols
 		self.coef = nn.parameter.Parameter(torch.zeros((rows, cols)))
 		for x in self.parameters():
@@ -166,18 +164,18 @@ class ACoef(nn.Module):
 		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
 
 	def forward(self, x):
-		x = x.view(-1, self.graph_size, self.graph_size)
+		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		elif len(x.shape) > 3: assert 0
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
 
 class FACoef(nn.Module):
-	def __init__(self, graph_size, rows, cols):
+	def __init__(self, rows, cols):
 		"""
 		:param graph_size: The number of nodes in an input graph.
 		:param rows: The number of rows in the output matrix
 		:param cols: The number of columns in the output matrix.
 		"""
 		super().__init__()
-		self.graph_size = graph_size
 		self.rows, self.cols = rows, cols
 		self.coef = nn.parameter.Parameter(torch.zeros((rows, cols)))
 		for x in self.parameters():
@@ -202,7 +200,8 @@ class FACoef(nn.Module):
 		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
 
 	def forward(self, x):
-		x = x.view(-1, self.graph_size, self.graph_size)
+		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		elif len(x.shape) > 3: assert 0
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
 
 class MACoef(nn.Module):
@@ -243,9 +242,8 @@ class MACoef(nn.Module):
 		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
 
 class SumTerm(nn.Module):
-	def __init__(self, graph_size, mod_list):
+	def __init__(self, mod_list):
 		super().__init__()
-		self.graph_size = graph_size
 		self.mod_list = torch.nn.ModuleList(mod_list)
 
 	def apply_coef(self, x):
@@ -268,7 +266,8 @@ class SumTerm(nn.Module):
 		return count
 
 	def forward(self, x):
-		x = x.view(-1, self.graph_size, self.graph_size)
+		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		elif len(x.shape) > 3: assert 0
 		return torch.sigmoid(torch.stack([self.apply_coef(i) for i in x[:]]))
 
 def evaluate(net, testloader, dev):

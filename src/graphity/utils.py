@@ -54,7 +54,8 @@ def is_pure(tensor):
 	"""
 	G = nx.from_numpy_matrix(tensor.cpu().numpy())
 	sizes = nx.node_clique_number(G, [i for i in range(len(G))])
-	return all(x == sizes[0] for x in sizes)
+	# Must iterate over values, sine sizes is a dict.
+	return all(x == sizes[0] for x in sizes.values())
 
 # 
 def is_symmetric(tensor):

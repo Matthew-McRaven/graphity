@@ -1,3 +1,4 @@
+import io
 import itertools
 import random
 
@@ -46,7 +47,23 @@ def _collate_max_cliques(node, cliques):
     """
     return [i for i in cliques if node in i]
 
-def _add_node(G, cliques, maximal_clique_size, graph_size):
+def _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique, _io):
+    # Add a new node and connect it to all remaining nodes in the clique.
+    new_node = len(G)
+    G.add_node(new_node)
+    G.add_edges_from([(new_node, i) for i in base_clique])
+    # Enforce that purity is mantained
+    # Create (the only) clique involving the new node.
+    new_clique = set(base_clique+[new_node])
+    #print(f"Adding node {new_node} created the clique {new_clique}", file=_io)
+
+    # Append the newly created clique to the list of cliques.
+    cliques.append(new_clique)
+    #print(f"This brings the clique list to {cliques}", file=_io)
+    #print("Done adding node.\n", file=_io)
+    return True, cliques
+
+def _add_node(G, cliques, maximal_clique_size, graph_size, _io):
     """
     Add a node to a pure graph while preserving purity.
 
@@ -62,28 +79,37 @@ def _add_node(G, cliques, maximal_clique_size, graph_size):
     :param maximal_clique_size: The max clique size of the pure graph.
     :param graph_size: The total number of nodes in the output graph.
     """
-    #print(f"Adding node {len(G)}")
+    #print(f"Adding node {len(G)}", file=_io)
     # Select a random clique to be used as a base for the new clique.
     base_clique = list(random.choice(cliques))
     # Select a random node to remove from the existing clique.
     # This prevents the maximal clique size from growing.
     random.shuffle(base_clique)
-    chopped_clique = base_clique[:-1]
-
-    # Add a new node and connect it to all remaining nodes in the clique.
-    new_node = len(G)
-    G.add_node(new_node)
-    G.add_edges_from([(new_node, i) for i in chopped_clique])
-
-    # Create (the only) clique involving the new node.
-    new_clique = set(chopped_clique+[new_node])
-    #print(new_node, new_clique)
-
-    # Append the newly created clique to the list of cliques.
-    cliques.append(new_clique)
+    success, cliques = _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique[:-1], _io)
     return cliques
 
-def _add_edge(G, cliques, maximal_clique_size, graph_size):
+def _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
+        c_1 = _collate_max_cliques(n_1, cliques)
+        c_2 = _collate_max_cliques(n_2, cliques)
+        valid, overlap_nodes = True, set()
+
+
+        for (i,j) in itertools.product(c_1, c_2):
+            if len(i|j) <= maximal_clique_size+1: valid=False
+            elif len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
+        if valid and len(overlap_nodes):
+            #print(f"Adding edge {n_1, n_2}", file=_io)
+            G.add_edge(n_1, n_2)
+            new_cliques = [{j for j in i}|{n_1,n_2} for i in overlap_nodes]
+            cliques.extend(new_cliques)
+            #print(f"This adds the cliques: {new_cliques}", file=_io)
+            #print(f"{c_1}, {c_2}", file=_io)
+            #print(f"This brings the clique list to {cliques}", file=_io)
+            #print("Done adding edge\n", file=_io)
+            return True, cliques
+        else: return False, cliques
+
+def _add_edge(G, cliques, maximal_clique_size, graph_size, _io):
     """
     Attempt to add an edge to a pure graph while maintaining purity.
     
@@ -113,24 +139,48 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size):
         n_1, n_2 = random.randint(0, len(G)-1), random.randint(0, len(G)-1)
 
         if n_1 == n_2: continue
-        c_1 = _collate_max_cliques(n_1, cliques)
-        c_2 = _collate_max_cliques(n_2, cliques)
-        valid, overlap_nodes = True, set()
+        elif G.has_edge(n_1, n_2): continue
+        success, new_cliques = _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io)
 
-        if G.has_edge(n_1, n_2): continue 
-        for (i,j) in itertools.product(c_1, c_2):
-            if len(i|j) <= maximal_clique_size+1: valid=False
-            elif len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
-        if valid and len(overlap_nodes):
-            #print("Added!!", {first, second})
-            G.add_edge(n_1, n_2)
-            new_cliques = [{j for j in i}|{n_1,n_2} for i in overlap_nodes]
-            #print(new_cliques)
-            cliques.extend(new_cliques)
-            return cliques
+        if not success: continue
+        else: return new_cliques
+
+    # If we give up, return the original set of cliques.
     return cliques
 
-def _remove_edge(G, cliques, maximal_clique_size, graph_size):
+def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
+    # Get all the max cliques that involve the first and second nodes.
+    c_1 = _collate_max_cliques(n_1, cliques)
+    c_2 = _collate_max_cliques(n_2, cliques)
+    valid = True
+
+    filt = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
+    # Check that both n_1 and n_2 particiapte in some clique that doesn't involve the other
+    filt_1, filt_2 = filt(c_1), filt(c_2)
+    if not (len(filt_1) and len(filt_2)): return False, cliques
+    # Check every node that interact with n_1 and n_2. This may be expensive,
+    # but it is the only way to be sure that we don't mess up some node somewhere.
+    # It may be possible to check only the set difference of (c-filt), but I'm not yet sure.
+    check = ({x for y in c_1 for x in y} | {x for y in c_2 for x in y}) - {n_1,n_2}
+    
+    # Check that other nodes have cliques not involving (n_1, n_2).
+    for x in check:
+        k_x = _collate_max_cliques(x, cliques)
+        filtered_x = [i for i in k_x if not (n_1 in i and n_2 in i)]
+        valid &= len(filtered_x) > 0
+    # Can only remove if all checks pass.
+    if valid: 
+        #print(f"Removing edge ({n_1}, {n_2})", file=_io)
+        G.remove_edge(n_1, n_2)
+        to_remove = [x for x in cliques if (n_1 in x and n_2 in x)]
+        #print(f"This removes cliques {to_remove}", file=_io)
+        cliques = [x for x in cliques if (x not in to_remove)]
+        #print(f"This brings the clique list to {cliques}", file=_io)
+        #print("Done removing edge\n", file=_io)
+        return True, cliques
+    return False, cliques
+
+def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io):
     """
     Attempt to remove an edge from a pure graph while maintaining purity.
     
@@ -161,34 +211,15 @@ def _remove_edge(G, cliques, maximal_clique_size, graph_size):
         attempts = attempts +1
         # Sample a pair of nodes
         n_1, n_2 = random.randint(0, len(G)-1), random.randint(0, len(G)-1)
+
         # Self-loops are disallowed, so there can be no edge added/removed.
         if n_1 == n_2: continue
+        if not G.has_edge(n_1, n_2): continue
+        success, new_cliques = _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io)
 
-        # Get all the max cliques that involve the first and second nodes.
-        c_1 = _collate_max_cliques(n_1, cliques)
-        c_2 = _collate_max_cliques(n_2, cliques)
-        valid = True
+        if not success: continue
+        else: return new_cliques 
 
-        if not G.has_edge(n_1, n_2): continue 
-
-        filt = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
-        # Check that both n_1 and n_2 particiapte in some clique that doesn't involve the other
-        filt_1, filt_2 = filt(c_1), filt(c_2)
-        if not (len(filt_1) and len(filt_2)): return cliques
-        # Check every node that interact with n_1 and n_2. This may be expensive,
-        # but it is the only way to be sure that we don't mess up some node somewhere.
-        # It may be possible to check only the set difference of (c-filt), but I'm not yet sure.
-        check = ({x for y in c_1 for x in y} | {x for y in c_2 for x in y}) - {n_1,n_2}
-        
-        # Check that other nodes have cliques not involving (n_1, n_2).
-        for x in check:
-            k_x = _collate_max_cliques(x, cliques)
-            filtered_x = [i for i in k_x if not (n_1 in i and n_2 in i)]
-            valid &= len(filtered_x) > 0
-        # Can only remove if all checks pass.
-        if valid: 
-            G.remove_edge(n_1, n_2)
-            return [x for x in cliques if not (n_1 in x and n_2 in x)]
     # If we give up, return the original set of cliques.
     return cliques
 
@@ -209,19 +240,21 @@ def random_pure_graph(maximal_clique_size, graph_size):
     :param maximal_clique_size: The max clique size of the pure graph.
     :param graph_size: The total number of nodes in the output graph.
     """
+
+    _io = io.StringIO()
     # It is impossible to generate a graph with fewer than clique_size number of nodes.
-    assert(graph_size >= maximal_clique_size)
+    assert graph_size >= maximal_clique_size
 
     # Generate a complete graph.
     G = nx.complete_graph(maximal_clique_size)
     # Get a list of all maximal cliques, which is just the set of all nodes.
 
     cliques = [set(i) for i in nx.find_cliques(G)]
-    #print(cliques)
+    #print(f"Starting with the following cliques: {cliques}", file=_io)
 
     # Extend the graph until we hit the desired number of nodes.
     while len(G) < graph_size: cliques = (random.choice([_add_node, _add_edge, _remove_edge])
-        (G, cliques, maximal_clique_size, graph_size))
+        (G, cliques, maximal_clique_size, graph_size, _io))
 
     #print(cliques)
     G = random_relabel(G)

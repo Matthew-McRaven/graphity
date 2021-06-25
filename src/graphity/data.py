@@ -1,3 +1,4 @@
+import math
 import os
 from pathlib import Path
 import random
@@ -170,7 +171,10 @@ def create_impure_dataset(count, clique_size, graph_size):
 	"""
 	# Create a random set of graphs
 	# TODO: Sample edge probability from the correct distribution.
-	things = [graphity.environment.graph.random_adj_matrix(graph_size, graph_size) for i in range(count)]
+	norm = (graph_size * (graph_size - 1))
+	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
+	ub = clique_size*(clique_size-1) * math.ceil(graph_size/clique_size) / norm
+	things = [graphity.environment.graph.random_adj_matrix(graph_size, graph_size, lb=lb, ub=ub) for i in range(count)]
 
 	# Remove duplicate
 	dedup_things = []

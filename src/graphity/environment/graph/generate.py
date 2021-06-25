@@ -222,7 +222,7 @@ def random_pure_graph(maximal_clique_size, graph_size):
     G = random_relabel(G)
     return torch.tensor(nx.to_numpy_array(G))
 
-def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, p=.5):
+def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, lb=.5, ub=.5):
     """
     Create a random undirected graph.
 
@@ -235,6 +235,10 @@ def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, p=.5):
     if rng is None:
         # Need to generate a random nXn graph that is square, symmetric, integer-valued, and all 1's or 0's.
         rng = default_rng()
+    assert lb >= 0
+    assert lb <= ub
+    assert ub <= 1
+    p = rng.uniform(lb, ub)
     # RNG excludes hi endpoint.
     rand = random_graph(graph_size, rng, p)
     # Mask out all values on or above the diagonal

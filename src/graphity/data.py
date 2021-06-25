@@ -162,6 +162,11 @@ def create_pure_dataset(count, clique_size, graph_size):
 		if possible: dedup_things.append(thing)
 	return dedup_things
 
+def bound_impure(clique_size, graph_size):
+	norm = (graph_size * (graph_size - 1))
+	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
+	ub = clique_size*(clique_size-1) * math.ceil(graph_size/clique_size) / norm
+	return lb, ub
 def create_impure_dataset(count, clique_size, graph_size):
 	"""
 	:param count: The maximum number of grapsh to generate.
@@ -171,9 +176,8 @@ def create_impure_dataset(count, clique_size, graph_size):
 	"""
 	# Create a random set of graphs
 	# TODO: Sample edge probability from the correct distribution.
-	norm = (graph_size * (graph_size - 1))
-	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
-	ub = clique_size*(clique_size-1) * math.ceil(graph_size/clique_size) / norm
+	
+	lb, ub = bound_impure(clique_size, graph_size)
 	things = [graphity.environment.graph.random_adj_matrix(graph_size, graph_size, lb=lb, ub=ub) for i in range(count)]
 
 	# Remove duplicate

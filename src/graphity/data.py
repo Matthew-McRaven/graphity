@@ -156,7 +156,7 @@ def create_pure_dataset(count, clique_size, graph_size):
 	for thing in things:
 		possible = True
 		if not graphity.utils.is_pure(thing):
-			graphity.utils.print_adj_tensor_as_graph(thing)
+			graphity.utils.print_as_graph(thing)
 			assert 0
 		for dedup in dedup_things:
 			if (dedup == thing).all():

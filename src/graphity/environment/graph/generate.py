@@ -93,8 +93,8 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size):
     If there's an edge between those nodes, begin again.
     Get the list/set of cliques involving n_1 and n_2, call them c_1 and c_2.
     
-    For c_1 and c_2, perform the following check for all pairs: If the intersection of pair_1 and pair_2 has clique_size elements,
-    then adding an edge would form a clique_size+1 sized clique. Therefore, reject the edge.
+    For c_1 and c_2, perform the following check for all pairs: If the intersection of pair_1 and pair_2 has less then 
+    clique_size+1 elements, adding an edge would form a clique_size+1 sized clique. Therefore, reject the edge.
 
     Now we must account for all cliques that will be completed by adding an edge
     First, compute the pairwise union of c_1 and c_2.
@@ -118,8 +118,8 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size):
 
         if G.has_edge(n_1, n_2): continue 
         for (i,j) in itertools.product(c_1, c_2):
-            if len(i|j) == maximal_clique_size: valid=False
-            if len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
+            if len(i|j) <= maximal_clique_size+1: valid=False
+            elif len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
         if valid and len(overlap_nodes):
             #print("Added!!", {first, second})
             G.add_edge(n_1, n_2)

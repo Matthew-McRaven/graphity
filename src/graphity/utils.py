@@ -95,3 +95,27 @@ def is_adj_matrix(tensor):
 	"""
 	return (is_matrix(tensor) and is_square(tensor) 
 			and is_symmetric(tensor) and all_zero_one(tensor))
+
+def print_adj_tensor_as_graph(tensor, name="failing.png"):
+	# Must view(...) changes the dimensions of the reward tensor from 1xnxn to nxn.
+	# Detach deletes any stored gradient information  (important when using machine learning!)
+	# CPU forces tensor to CPU, which is required to convert from a tensor to a numpy array.
+	adj = tensor.detach().cpu().numpy()
+	# Convert from adjacency matrix to NetworkX object.
+	# See documentation for information about the library:
+	#    https://networkx.github.io/documentation/stable/
+	#    https://networkx.github.io/
+	#    https://pypi.org/project/networkx/
+	# If you have questions about what algorithmsare implemented on these graphs, see:
+	#    https://networkx.github.io/documentation/stable/reference/index.html
+	as_graph = nx.from_numpy_matrix(adj)
+
+	# Drawing example taken from:
+	#    https://networkx.github.io/documentation/latest/auto_examples/drawing/plot_weighted_graph.html
+	pos = nx.spring_layout(as_graph) 
+	# Draw nodes & edges.
+	nx.draw_networkx_nodes(as_graph, pos, node_size=700)
+	nx.draw_networkx_edges(as_graph, pos, width=6)
+	# Render the graph to the screen.
+	plt.axis("off")
+	plt.savefig(name)

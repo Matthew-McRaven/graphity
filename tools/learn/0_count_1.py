@@ -14,11 +14,13 @@ def main(args):
 
 	pure_dir = f"data/pure/({clique_size}-{graph_size})"
 	dataset = graphity.data.FileGraphDataset(pure_dir, None)
-	_1s = [x[0].mean() for x in dataset]
-	plt.hist(_1s, bins=10, density=True)
+	_1s = [x[0].mean().item() for x in dataset]
+	plt.hist(_1s, bins = 20)
 	plt.xlabel("Probability of edge")
 	plt.suptitle(f"k={clique_size}, g={graph_size}")
 	plt.ylabel("Relative liklihood of each prob.")
+	lb, ub = graphity.data.bound_impure(clique_size, graph_size)
+	plt.vlines((lb, ub), 0, 100, "red", alpha=.25)
 	plt.savefig(f"pure-({clique_size}-{graph_size})-edges")
 	plt.show()
 

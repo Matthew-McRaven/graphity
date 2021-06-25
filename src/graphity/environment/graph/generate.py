@@ -6,6 +6,7 @@ import numpy as np
 from numpy.random import default_rng
 import torch.tensor
 
+import graphity.utils
 
 def random_graph(graph_size, rng=None, p=.5):
     """
@@ -143,8 +144,9 @@ def _remove_edge(G, cliques, maximal_clique_size, graph_size):
     For c_1 and c_2, check that if all cliques containg n_1 and n_2 are removed either that c_1 and c_2 have at least one clique left.
     This check is required to prevent a removal for decreasing the maximal clique size of n_1 and n_2.
 
-    Then, compute the c_has_both, which is the set of all cliques from c_1 and c_2 that contain both n_1 and n_2.
+    Then, compute the c_has_both, which is the set of all cliques from c_1 and c_2 that contain either n_1 or n_2.
     Using this set, construct a set, `check` of all nodes present in c_has_both, removing n_1 and n_2.
+    This may check nodes who cannot be influenced by the removal of an edge, but the old algorithm missed some edge (ha) cases.
     For each node in this set, ensure that it has a maximal clique not involving n_1 or n_2.
     This check ensure that a removal of an edge doesn't decrease the max clique size
 
@@ -169,11 +171,14 @@ def _remove_edge(G, cliques, maximal_clique_size, graph_size):
 
         if not G.has_edge(n_1, n_2): continue 
 
+        filt = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
         # Check that both n_1 and n_2 particiapte in some clique that doesn't involve the other
-        filt_1 = [i for i in c_1 if not (n_1 in i and n_2 in i)]
-        filt_2 = [i for i in c_2 if not (n_1 in i and n_2 in i)]
-        if not (len(filt_1) and len(filt_2)): valid=False
-        check = ({x for y in filt_1 for x in y} | {x for y in filt_2 for x in y}) - {n_1,n_2}
+        filt_1, filt_2 = filt(c_1), filt(c_2)
+        if not (len(filt_1) and len(filt_2)): return cliques
+        # Check every node that interact with n_1 and n_2. This may be expensive,
+        # but it is the only way to be sure that we don't mess up some node somewhere.
+        # It may be possible to check only the set difference of (c-filt), but I'm not yet sure.
+        check = ({x for y in c_1 for x in y} | {x for y in c_2 for x in y}) - {n_1,n_2}
         
         # Check that other nodes have cliques not involving (n_1, n_2).
         for x in check:

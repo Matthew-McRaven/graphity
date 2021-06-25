@@ -56,8 +56,11 @@ def is_pure(tensor):
 	if type(tensor) != nx.Graph: G = nx.from_numpy_matrix(tensor.cpu().numpy())
 	else: G= tensor
 	sizes = nx.node_clique_number(G, [i for i in range(len(G))])
-	# Must iterate over values, sine sizes is a dict.
-	return all(x == sizes[0] for x in sizes.values())
+	max_v = max(sizes.values())
+	# Must iterate over values, since sizes is a dict.
+	cond = all(x == sizes[0] for x in sizes.values())
+	#if not cond: print([k for k in sizes if sizes[k] == max_v])
+	return cond
 
 # 
 def is_symmetric(tensor):

@@ -155,6 +155,9 @@ def create_pure_dataset(count, clique_size, graph_size):
 	dedup_things = []
 	for thing in things:
 		possible = True
+		if not graphity.utils.is_pure(thing):
+			graphity.utils.print_adj_tensor_as_graph(thing)
+			assert 0
 		for dedup in dedup_things:
 			if (dedup == thing).all():
 				possible = False
@@ -167,6 +170,7 @@ def bound_impure(clique_size, graph_size):
 	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
 	ub = 2*clique_size*(clique_size-1) * math.floor(graph_size/clique_size) / norm
 	return lb, ub
+	
 def create_impure_dataset(count, clique_size, graph_size):
 	"""
 	:param count: The maximum number of grapsh to generate.

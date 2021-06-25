@@ -31,12 +31,12 @@ def main(args):
 				pargs['count'] = args.count
 				pargs['clique_size'] = clique_size
 				pargs['graph_size'] = g
-				#procs.append(pool.apply_async(gen_data, (pargs,)))
-				gen_data(pargs)
+				procs.append(pool.apply_async(gen_data, (pargs,)))
+				#gen_data(pargs)
 			# Force processes to terminate.
-			#for p in procs: procs_ret.append(p.get())
-			#pool.close()
-			#pool.join()
+			for p in procs: procs_ret.append(p.get())
+			pool.close()
+			pool.join()
 
 
 

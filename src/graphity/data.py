@@ -150,12 +150,12 @@ def create_pure_dataset(count, clique_size, graph_size):
 	"""
 	# Create a random set of graphs
 	things = [graphity.environment.graph.random_pure_graph(clique_size, graph_size) for i in range(count)]
-
 	# Remove duplicate
 	dedup_things = []
 	for thing in things:
 		possible = True
-		if not graphity.utils.is_pure(thing):
+		if not graphity.utils.is_pure(thing, clique_size):
+			print(thing, thing.float().mean())
 			graphity.utils.print_as_graph(thing)
 			assert 0
 		for dedup in dedup_things:
@@ -168,7 +168,7 @@ def create_pure_dataset(count, clique_size, graph_size):
 def bound_impure(clique_size, graph_size):
 	norm = (graph_size * (graph_size - 1))
 	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
-	ub = 2*clique_size*(clique_size-1) * math.floor(graph_size/clique_size) / norm
+	ub = min(2*clique_size*(clique_size-1) * math.ceil(graph_size/clique_size) / norm,1)
 	return lb, ub
 	
 def create_impure_dataset(count, clique_size, graph_size):
@@ -192,5 +192,5 @@ def create_impure_dataset(count, clique_size, graph_size):
 			if not possible: break
 			elif (dedup == thing).all(): possible = False
 		# Exclude all pure graphs
-		if possible and not graphity.utils.is_pure(thing): dedup_things.append(thing)
+		if possible and not graphity.utils.is_pure(thing, clique_size): dedup_things.append(thing)
 	return dedup_things

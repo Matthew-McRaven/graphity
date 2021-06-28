@@ -41,7 +41,7 @@ def is_square(tensor):
 	"""
 	return tensor.shape[-1] == tensor.shape[-2]
 
-def is_pure(tensor):
+def is_pure(tensor, k):
 	"""
 	Warning!: This requires solving an NP hard problem. 
 	This may take exponential time. 
@@ -54,13 +54,13 @@ def is_pure(tensor):
 	This tensor's maximal clique size and purity status is not known.
 	"""
 	if type(tensor) != nx.Graph: G = nx.from_numpy_matrix(tensor.cpu().numpy())
-	else: G= tensor
+	else: G = tensor
 	sizes = nx.node_clique_number(G, [i for i in range(len(G))])
-	max_v = max(sizes.values())
 	# Must iterate over values, since sizes is a dict.
-	cond = all(x == sizes[0] for x in sizes.values())
+	cond = all(x == k for x in sizes.values())
 	#if not cond: print([k for k in sizes if sizes[k] == max_v])
 	return cond
+
 
 # 
 def is_symmetric(tensor):
@@ -101,6 +101,7 @@ def is_adj_matrix(tensor):
 	"""
 	return (is_matrix(tensor) and is_square(tensor) 
 			and is_symmetric(tensor) and all_zero_one(tensor))
+
 
 def print_as_graph(tensor, name="failing.png"):
 	# Detach deletes any stored gradient information  (important when using machine learning!)

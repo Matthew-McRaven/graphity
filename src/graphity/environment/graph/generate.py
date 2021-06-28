@@ -1,8 +1,12 @@
 import io
 import itertools
 import random
+from typing import ItemsView
 
+import matplotlib.pyplot as plt
+import matplotlib.animation
 import networkx as nx
+from networkx.algorithms import clique
 import numpy as np
 from numpy.random import default_rng
 import torch.tensor
@@ -55,6 +59,7 @@ def _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique, _io):
     # Enforce that purity is mantained
     # Create (the only) clique involving the new node.
     new_clique = set(base_clique+[new_node])
+    print(f"This adds the cliques: {new_clique}", file=_io)
     #print(f"Adding node {new_node} created the clique {new_clique}", file=_io)
 
     # Append the newly created clique to the list of cliques.
@@ -63,7 +68,7 @@ def _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique, _io):
     #print("Done adding node.\n", file=_io)
     return True, cliques
 
-def _add_node(G, cliques, maximal_clique_size, graph_size, _io):
+def _add_node(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """
     Add a node to a pure graph while preserving purity.
 
@@ -79,14 +84,14 @@ def _add_node(G, cliques, maximal_clique_size, graph_size, _io):
     :param maximal_clique_size: The max clique size of the pure graph.
     :param graph_size: The total number of nodes in the output graph.
     """
-    #print(f"Adding node {len(G)}", file=_io)
+    print(f"Adding node {len(G)}", file=_io)
     # Select a random clique to be used as a base for the new clique.
     base_clique = list(random.choice(cliques))
     # Select a random node to remove from the existing clique.
     # This prevents the maximal clique size from growing.
     random.shuffle(base_clique)
     success, cliques = _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique[:-1], _io)
-    return cliques
+    return cliques, {"t": f"Adding node: {len(G)-1}"}
 
 def _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
         c_1 = _collate_max_cliques(n_1, cliques)
@@ -98,18 +103,18 @@ def _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
             if len(i|j) <= maximal_clique_size+1: valid=False
             elif len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
         if valid and len(overlap_nodes):
-            #print(f"Adding edge {n_1, n_2}", file=_io)
+            print(f"Adding edge {n_1, n_2}", file=_io)
             G.add_edge(n_1, n_2)
             new_cliques = [{j for j in i}|{n_1,n_2} for i in overlap_nodes]
             cliques.extend(new_cliques)
-            #print(f"This adds the cliques: {new_cliques}", file=_io)
-            #print(f"{c_1}, {c_2}", file=_io)
-            #print(f"This brings the clique list to {cliques}", file=_io)
-            #print("Done adding edge\n", file=_io)
+            print(f"This adds the cliques: {new_cliques}", file=_io)
+            print(f"{c_1}, {c_2}", file=_io)
+            print(f"This brings the clique list to {cliques}", file=_io)
+            print("Done adding edge\n", file=_io)
             return True, cliques
         else: return False, cliques
 
-def _add_edge(G, cliques, maximal_clique_size, graph_size, _io):
+def _add_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """
     Attempt to add an edge to a pure graph while maintaining purity.
     
@@ -143,10 +148,10 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size, _io):
         success, new_cliques = _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io)
 
         if not success: continue
-        else: return new_cliques
+        else: return new_cliques , {'t': f"Adding edge ({n_1}, {n_2})"}
 
     # If we give up, return the original set of cliques.
-    return cliques
+    return cliques, {}
 
 def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     # Get all the max cliques that involve the first and second nodes.
@@ -154,10 +159,17 @@ def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     c_2 = _collate_max_cliques(n_2, cliques)
     valid = True
 
-    filt = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
+    filt_not = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
+    filt_has = lambda c: [i for i in c if (n_1 in i and n_2 in i)]
     # Check that both n_1 and n_2 particiapte in some clique that doesn't involve the other
-    filt_1, filt_2 = filt(c_1), filt(c_2)
+    filt_1, filt_2 = filt_not(c_1), filt_not(c_2)
     if not (len(filt_1) and len(filt_2)): return False, cliques
+    # Check that the edge between n_1 and n_2 participates in at most 1 clique.
+    # If the edge participates in more than one clique, then the other clique will be downgraded in size.
+    filt_1, filt_2 = filt_has(c_1), filt_has(c_2)
+    if len(filt_1) > 1 or len(filt_2) > 1: return False, cliques
+
+    
     # Check every node that interact with n_1 and n_2. This may be expensive,
     # but it is the only way to be sure that we don't mess up some node somewhere.
     # It may be possible to check only the set difference of (c-filt), but I'm not yet sure.
@@ -170,17 +182,17 @@ def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
         valid &= len(filtered_x) > 0
     # Can only remove if all checks pass.
     if valid: 
-        #print(f"Removing edge ({n_1}, {n_2})", file=_io)
+        print(f"Removing edge ({n_1}, {n_2})", file=_io)
         G.remove_edge(n_1, n_2)
         to_remove = [x for x in cliques if (n_1 in x and n_2 in x)]
-        #print(f"This removes cliques {to_remove}", file=_io)
+        print(f"This removes cliques {to_remove}", file=_io)
         cliques = [x for x in cliques if (x not in to_remove)]
-        #print(f"This brings the clique list to {cliques}", file=_io)
-        #print("Done removing edge\n", file=_io)
+        print(f"This brings the clique list to {cliques}", file=_io)
+        print("Done removing edge\n", file=_io)
         return True, cliques
     return False, cliques
 
-def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io):
+def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """
     Attempt to remove an edge from a pure graph while maintaining purity.
     
@@ -215,15 +227,15 @@ def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io):
         # Self-loops are disallowed, so there can be no edge added/removed.
         if n_1 == n_2: continue
         if not G.has_edge(n_1, n_2): continue
-        success, new_cliques = _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io)
+        success, new_cliques = _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io)
 
         if not success: continue
-        else: return new_cliques 
+        else: return new_cliques , {'t': f"Removing edge ({n_1}, {n_2})"}
 
     # If we give up, return the original set of cliques.
-    return cliques
+    return cliques, {}
 
-def random_pure_graph(maximal_clique_size, graph_size):
+def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
     """
     Create a random pure graph.
 
@@ -250,15 +262,45 @@ def random_pure_graph(maximal_clique_size, graph_size):
     # Get a list of all maximal cliques, which is just the set of all nodes.
 
     cliques = [set(i) for i in nx.find_cliques(G)]
-    #print(f"Starting with the following cliques: {cliques}", file=_io)
+    print(f"Starting with the following cliques: {cliques}", file=_io)
 
+    if do_anim: frames = []
     # Extend the graph until we hit the desired number of nodes.
-    while len(G) < graph_size: cliques = (random.choice([_add_node, _add_edge, _remove_edge])
-        (G, cliques, maximal_clique_size, graph_size, _io))
+    while len(G) < graph_size: 
+        cliques, items = (random.choice([_add_node, _add_edge, _remove_edge])
+            (G, cliques, maximal_clique_size, graph_size, _io, do_anim))
+        #if not items: continue
+        #elif do_anim: frames.append({'f':G.copy(), **items})
+        #if not graphity.utils.is_pure(G, maximal_clique_size): break
 
-    #print(cliques)
+    def fail():
+        fig = plt.figure()
+        ax = plt.axes()
+        def update(i):
+            _G = frames[i]['f']
+            ax.clear()
+            pos = nx.spring_layout(_G) 
+            # Draw nodes & edges.
+            nx.draw_networkx_nodes(_G, pos, node_size=700, ax=ax)
+            nx.draw_networkx_labels(_G, pos, ax=ax)
+            nx.draw_networkx_edges(_G, pos, width=6, ax=ax)
+            ax.set_title(frames[i]['t'])
+
+        print(_io.getvalue())
+        graphity.utils.print_as_graph(G)
+        print(nx.node_clique_number(G, [i for i in range(len(G))]))
+        ani = matplotlib.animation.FuncAnimation(fig, update, interval=1000, frames=len(frames), repeat=False)
+        ani.save('animation.gif', writer='imagemagick', fps=.1)
+
+        assert 0 
+
+    #if not graphity.utils.is_pure(G, maximal_clique_size): fail()
     G = random_relabel(G)
-    return torch.tensor(nx.to_numpy_array(G))
+    Gt = torch.tensor(nx.to_numpy_array(G))
+
+    #lb, ub = graphity.data.bound_impure(maximal_clique_size, graph_size)
+    #if not Gt.float().mean() <= ub: fail()
+    return Gt
 
 def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, lb=.5, ub=.5):
     """

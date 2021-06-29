@@ -58,6 +58,7 @@ def is_pure(tensor, k):
 	sizes = nx.node_clique_number(G, [i for i in range(len(G))])
 	# Must iterate over values, since sizes is a dict.
 	cond = all(x == k for x in sizes.values())
+	for p in  nx.find_cliques(G): cond = cond and len(p) == k
 	#if not cond: print([k for k in sizes if sizes[k] == max_v])
 	return cond
 

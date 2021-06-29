@@ -8,21 +8,23 @@ from networkx.algorithms import clique
 
 import graphity.environment.graph
 import graphity.data
-def gen_data(args):
+def gen_impure(args):
+	count, clique_size, graph_size = args['count'], args['clique_size'], args['graph_size']
+	dataset=graphity.data.create_impure_dataset(count, clique_size, graph_size)
+	data_dir = f"data/impure/({clique_size}-{graph_size})"
+	graphity.data.save_dataset(dataset, data_dir)
+
+def gen_pure(args):
 	count, clique_size, graph_size = args['count'], args['clique_size'], args['graph_size']
 	dataset=graphity.data.create_pure_dataset(count, clique_size, graph_size)
 	data_dir = f"data/pure/({clique_size}-{graph_size})"
-	graphity.data.save_dataset(dataset, data_dir)
-
-	dataset=graphity.data.create_impure_dataset(count, clique_size, graph_size)
-	data_dir = f"data/impure/({clique_size}-{graph_size})"
 	graphity.data.save_dataset(dataset, data_dir)
 
 def main(args):
 	must_hold, procs, procs_ret = [], [], []
 	clique_size = args.clique_size
 	with multiprocessing.Manager() as manager:
-		with multiprocessing.Pool(processes=16) as pool:
+		with multiprocessing.Pool(processes=32) as pool:
 			for g in range(args.g_min, args.g_max):
 				pargs = manager.dict()
 				# MUST NOT DISCARD SOMETHING GIVEN TO US BY MANAGER
@@ -31,7 +33,8 @@ def main(args):
 				pargs['count'] = args.count
 				pargs['clique_size'] = clique_size
 				pargs['graph_size'] = g
-				procs.append(pool.apply_async(gen_data, (pargs,)))
+				procs.append(pool.apply_async(gen_impure, (pargs,)))
+				procs.append(pool.apply_async(gen_pure,   (pargs,)))
 				#gen_data(pargs)
 			# Force processes to terminate.
 			for p in procs: procs_ret.append(p.get())

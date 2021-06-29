@@ -168,7 +168,7 @@ def create_pure_dataset(count, clique_size, graph_size):
 def bound_impure(clique_size, graph_size):
 	norm = (graph_size * (graph_size - 1))
 	nok = math.ceil(graph_size/clique_size)
-	lb = 2*clique_size * nok / norm
+	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
 	ub =  clique_size*(nok *(graph_size-nok)) / norm
 	return lb, ub
 	

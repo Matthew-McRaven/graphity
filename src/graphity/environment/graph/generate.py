@@ -153,11 +153,11 @@ def _add_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     # If we give up, return the original set of cliques.
     return cliques, {}
 
+
 def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     # Get all the max cliques that involve the first and second nodes.
     c_1 = _collate_max_cliques(n_1, cliques)
     c_2 = _collate_max_cliques(n_2, cliques)
-    valid = True
 
     filt_not = lambda c: [i for i in c if not (n_1 in i and n_2 in i)]
     filt_has = lambda c: [i for i in c if (n_1 in i and n_2 in i)]
@@ -169,28 +169,29 @@ def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     filt_1, filt_2 = filt_has(c_1), filt_has(c_2)
     if len(filt_1) > 1 or len(filt_2) > 1: return False, cliques
 
-    
-    # Check every node that interact with n_1 and n_2. This may be expensive,
-    # but it is the only way to be sure that we don't mess up some node somewhere.
-    # It may be possible to check only the set difference of (c-filt), but I'm not yet sure.
-    check = ({x for y in c_1 for x in y} | {x for y in c_2 for x in y}) - {n_1,n_2}
-    
-    # Check that other nodes have cliques not involving (n_1, n_2).
-    for x in check:
-        k_x = _collate_max_cliques(x, cliques)
-        filtered_x = [i for i in k_x if not (n_1 in i and n_2 in i)]
-        valid &= len(filtered_x) > 0
-    # Can only remove if all checks pass.
-    if valid: 
-        print(f"Removing edge ({n_1}, {n_2})", file=_io)
+    #print(f"Removing clique involving {n_1, n_2}", file=_io)
+    def can_remove(_n_1, _n_2):
+        # In order for a clique to be "okay" with a removal, each edge must participate in another clique.
+        s = {frozenset(i) for i in cliques if (_n_1 in i and _n_2 in i)}
+        return len(s) > 1
+
+    # Check that 
+    removed = True
+    for (_n_1, _n_2) in itertools.combinations(filt_1[0], 2):
+        # The selected edge only participates in one clique.
+        if sorted([n_1, n_2]) == sorted([_n_1, _n_2]): continue
+        # And every other edge participates in other cliques.
+        elif not can_remove(_n_1, _n_2): removed = False
+
+    if removed:
+        #print(f"Removing edge ({n_1}, {n_2})", file=_io)
         G.remove_edge(n_1, n_2)
-        to_remove = [x for x in cliques if (n_1 in x and n_2 in x)]
-        print(f"This removes cliques {to_remove}", file=_io)
-        cliques = [x for x in cliques if (x not in to_remove)]
-        print(f"This brings the clique list to {cliques}", file=_io)
-        print("Done removing edge\n", file=_io)
+        #print(f"This removes cliques {filt_1}", file=_io)
+        cliques = [x for x in cliques if (x not in filt_1)]
+        #print(f"This brings the clique list to {cliques}", file=_io)
+        #print("Done removing edge\n", file=_io)
         return True, cliques
-    return False, cliques
+    else: return False, cliques
 
 def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """
@@ -206,11 +207,10 @@ def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     For c_1 and c_2, check that if all cliques containg n_1 and n_2 are removed either that c_1 and c_2 have at least one clique left.
     This check is required to prevent a removal for decreasing the maximal clique size of n_1 and n_2.
 
-    Then, compute the c_has_both, which is the set of all cliques from c_1 and c_2 that contain either n_1 or n_2.
-    Using this set, construct a set, `check` of all nodes present in c_has_both, removing n_1 and n_2.
-    This may check nodes who cannot be influenced by the removal of an edge, but the old algorithm missed some edge (ha) cases.
-    For each node in this set, ensure that it has a maximal clique not involving n_1 or n_2.
-    This check ensure that a removal of an edge doesn't decrease the max clique size
+    For all edges that participate in the selected clique:
+    * The selected edge must only be used in one (the selected) clique.
+    * All other edges must appear in another clique.
+    Failure to meet this condition allows deleting of edges that incorrectly reduce maximal clique size.
 
     :param G: A networkx graph that is pure.
     :param cliques: A list of *all* maximal cliques.
@@ -293,13 +293,9 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
         ani.save('animation.gif', writer='imagemagick', fps=.1)
 
         assert 0 
-
-    #if not graphity.utils.is_pure(G, maximal_clique_size): fail()
-    G = random_relabel(G)
-    Gt = torch.tensor(nx.to_numpy_array(G))
-
+    
     #lb, ub = graphity.data.bound_impure(maximal_clique_size, graph_size)
-    #if not Gt.float().mean() <= ub: fail()
+    if not graphity.utils.is_pure(G, maximal_clique_size): fail()
     return Gt
 
 def random_adj_matrix(graph_size, allow_self_loops=False, rng=None, lb=.5, ub=.5):

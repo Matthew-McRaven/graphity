@@ -269,9 +269,13 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
     while len(G) < graph_size: 
         cliques, items = (random.choice([_add_node, _add_edge, _remove_edge])
             (G, cliques, maximal_clique_size, graph_size, _io, do_anim))
-        #if not items: continue
-        #elif do_anim: frames.append({'f':G.copy(), **items})
+        if not items: continue
+        elif do_anim: frames.append({'f':G.copy(), **items})
         #if not graphity.utils.is_pure(G, maximal_clique_size): break
+
+    #if not graphity.utils.is_pure(G, maximal_clique_size): fail()
+    #G = random_relabel(G)
+    Gt = torch.tensor(nx.to_numpy_array(G))
 
     def fail():
         fig = plt.figure()
@@ -287,11 +291,14 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
             ax.set_title(frames[i]['t'])
 
         print(_io.getvalue())
+        print(Gt.sum())
+        print( Gt)
+        print(list(nx.find_cliques(G)))
         graphity.utils.print_as_graph(G)
         print(nx.node_clique_number(G, [i for i in range(len(G))]))
         ani = matplotlib.animation.FuncAnimation(fig, update, interval=1000, frames=len(frames), repeat=False)
-        ani.save('animation.gif', writer='imagemagick', fps=.1)
-
+        my_writer=matplotlib.animation.PillowWriter(fps=1, codec='libx264', bitrate=2)
+        ani.save(filename='gif_test.gif', writer=my_writer)
         assert 0 
     
     #lb, ub = graphity.data.bound_impure(maximal_clique_size, graph_size)

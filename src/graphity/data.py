@@ -169,7 +169,9 @@ def bound_impure(clique_size, graph_size):
 	norm = (graph_size * (graph_size - 1))
 	nok = math.ceil(graph_size/clique_size)
 	lb = 2*clique_size * math.floor(graph_size/clique_size) / norm
-	ub =  clique_size*(nok *(graph_size-nok)) / norm
+	# This is Turán's theorem, which gives the maximum number of edges
+	# in a graph of size N using k-partite graphs.
+	ub = (clique_size-1)/clique_size * graph_size**2/(norm)
 	return lb, ub
 	
 def create_impure_dataset(count, clique_size, graph_size):

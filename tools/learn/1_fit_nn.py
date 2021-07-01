@@ -25,7 +25,8 @@ def main(args):
 	impure_dir = f"data/impure/({clique_size}-{graph_size})"
 	if not os.path.exists(pure_dir) or not os.path.exists(impure_dir): 
 		raise ValueError("Dataset directories must exist. Please run 0_generate.py with the same g,k.")
-	config, _1, _2 = graphity.environment.graph.get_best_config(pure_dir, impure_dir, graph_size, clique_size, get_nn, batch_size=args.batch_size, epochs=args.epochs)
+	config, _1, _2 = graphity.environment.graph.get_best_config(pure_dir, impure_dir, graph_size, clique_size, get_nn,
+		batch_size=args.batch_size, epochs=args.epochs, dev=args.device)
 	# Save items to disk
 	parent = Path("data/models/nn/")
 	parent.mkdir(parents=True, exist_ok=True)

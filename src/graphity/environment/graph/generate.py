@@ -60,12 +60,11 @@ def _do_add_node(G, cliques, maximal_clique_size, graph_size, base_clique, _io):
     # Create (the only) clique involving the new node.
     new_clique = set(base_clique+[new_node])
     print(f"This adds the cliques: {new_clique}", file=_io)
-    #print(f"Adding node {new_node} created the clique {new_clique}", file=_io)
 
     # Append the newly created clique to the list of cliques.
     cliques.append(new_clique)
-    #print(f"This brings the clique list to {cliques}", file=_io)
-    #print("Done adding node.\n", file=_io)
+    print(f"This brings the clique list to {cliques}", file=_io)
+    print("Done adding node.\n", file=_io)
     return True, cliques
 
 def _add_node(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
@@ -169,29 +168,31 @@ def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     filt_1, filt_2 = filt_has(c_1), filt_has(c_2)
     if len(filt_1) > 1 or len(filt_2) > 1: return False, cliques
 
-    #print(f"Removing clique involving {n_1, n_2}", file=_io)
-    def can_remove(_n_1, _n_2):
-        # In order for a clique to be "okay" with a removal, each edge must participate in another clique.
-        s = {frozenset(i) for i in cliques if (_n_1 in i and _n_2 in i)}
-        return len(s) > 1
+    # Only way we can remove an edge is guess-and-check
+    old_G = G.copy()
+    print(f"Removing edge ({n_1}, {n_2})", file=_io)
+    G.remove_edge(n_1, n_2)
 
-    # Check that 
-    removed = True
-    for (_n_1, _n_2) in itertools.combinations(filt_1[0], 2):
-        # The selected edge only participates in one clique.
-        if sorted([n_1, n_2]) == sorted([_n_1, _n_2]): continue
-        # And every other edge participates in other cliques.
-        elif not can_remove(_n_1, _n_2): removed = False
+    new_cliques =  [set(i) for i in nx.find_cliques(G)]
+    valid = all(len(clique) == maximal_clique_size for clique in new_cliques)
+    print(G.edges(), file=_io)
+    for (_n_1, _n_2) in G.edges():
+        if not valid: break
+        for clique in new_cliques:
+            if (_n_1 in clique) and (_n_2 in clique): break
+        else: valid = False
+    
 
-    if removed:
-        #print(f"Removing edge ({n_1}, {n_2})", file=_io)
-        G.remove_edge(n_1, n_2)
-        #print(f"This removes cliques {filt_1}", file=_io)
-        cliques = [x for x in cliques if (x not in filt_1)]
-        #print(f"This brings the clique list to {cliques}", file=_io)
-        #print("Done removing edge\n", file=_io)
-        return True, cliques
-    else: return False, cliques
+    if valid:
+        print(f"This removes cliques {filt_1}", file=_io)
+        print(f"This brings the clique list to {new_cliques}", file=_io)
+        print("Done removing edge\n", file=_io)
+        return True, new_cliques
+    else:
+        print("Rejecting delete.", file=_io)
+        G.add_edge(n_1, n_2)
+        return False, cliques
+
 
 def _remove_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """

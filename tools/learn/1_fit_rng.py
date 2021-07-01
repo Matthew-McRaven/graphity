@@ -11,9 +11,9 @@ from graphity.environment.graph import *
 def main(args):
 	graph_size, clique_size = args.graph_size, args.clique_size
 	terms = []
-	terms.append(ACoef(graph_size, rows=4, cols=2))
-	terms.append(FACoef(graph_size, rows=4, cols=2))
-	net = SumTerm(graph_size, terms)
+	terms.append(ACoef(rows=4, cols=2))
+	terms.append(FACoef(rows=4, cols=2))
+	net = SumTerm(terms)
 
 	# Save items to disk
 	parent = Path("data/models/rng/")

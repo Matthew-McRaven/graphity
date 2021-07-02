@@ -176,11 +176,6 @@ def _do_remove_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
     new_cliques =  [set(i) for i in nx.find_cliques(G)]
     valid = all(len(clique) == maximal_clique_size for clique in new_cliques)
     print(G.edges(), file=_io)
-    for (_n_1, _n_2) in G.edges():
-        if not valid: break
-        for clique in new_cliques:
-            if (_n_1 in clique) and (_n_2 in clique): break
-        else: valid = False
     
 
     if valid:

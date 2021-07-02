@@ -41,6 +41,25 @@ def is_square(tensor):
 	"""
 	return tensor.shape[-1] == tensor.shape[-2]
 
+def purity_degree(tensor, k):
+	"""
+	Warning!: This requires solving an NP hard problem. 
+	This may take exponential time. 
+	Please pass in small graphs for your own sake.
+
+	Determines if the input graph is pure.
+	For a graph to be pure, the maximal clique number at every site must be the same size.
+
+	:param tensor: A torch.Tensor containing all {0, 1}.
+	This tensor's maximal clique size and purity status is not known.
+	"""
+	if type(tensor) != nx.Graph: G = nx.from_numpy_matrix(tensor.cpu().numpy())
+	else: G = tensor
+	cliques = list(nx.find_cliques(G))
+	s = sum(1 if len(p) == k else 0 for p in cliques) / len(cliques)
+	if s == 1.0: assert is_pure(tensor, k)
+	return s
+
 def is_pure(tensor, k):
 	"""
 	Warning!: This requires solving an NP hard problem. 

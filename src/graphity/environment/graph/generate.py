@@ -262,13 +262,19 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
 
     if do_anim: frames = []
     # Extend the graph until we hit the desired number of nodes.
-    while len(G) < graph_size: 
-        cliques, items = (random.choice([_add_node, _add_edge, _remove_edge])
-            (G, cliques, maximal_clique_size, graph_size, _io, do_anim))
+    for _ in range(graph_size**2):
+        f = (random.choice([_add_node, _add_edge, _remove_edge]))
+        if f == _add_node and len(G) == graph_size: continue
+        cliques, items = f(G, cliques, maximal_clique_size, graph_size, _io, do_anim)
         if not items: continue
         elif do_anim: frames.append({'f':G.copy(), **items})
         #if not graphity.utils.is_pure(G, maximal_clique_size): break
-
+    
+    # Ensure that we have the proper number of nodes
+    while len(G) < graph_size: 
+        cliques, items = _add_node(G, cliques, maximal_clique_size, graph_size, _io, do_anim)
+        if do_anim: frames.append({'f':G.copy(), **items})
+        
     #if not graphity.utils.is_pure(G, maximal_clique_size): fail()
     #G = random_relabel(G)
     Gt = torch.tensor(nx.to_numpy_array(G))

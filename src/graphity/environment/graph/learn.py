@@ -270,7 +270,7 @@ class SumTerm(nn.Module):
 		elif len(x.shape) > 3: assert 0
 		return torch.sigmoid(torch.stack([self.apply_coef(i) for i in x[:]]))
 
-def evaluate(net, testloader, dev):
+def evaluate(net, testloader, dev, count=None):
 	classes = ('pure', 'not pure')
 	correct, total = 0, 0
 	correct_pred, total_pred = {classname: 0 for classname in classes}, {classname: 0 for classname in classes}
@@ -286,6 +286,10 @@ def evaluate(net, testloader, dev):
 			for label, prediction in zip(labels, predictions):
 				if label == prediction: correct_pred[classes[label]] += 1
 				total_pred[classes[label]] += 1
+
+			if count is None: pass
+			elif count > 0: count -= len(images)
+			elif count <= 0: break
 	return correct/total, (correct_pred, total_pred)
 
 def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epochs=100, batch_size=10, dev='cpu', n_splits=2):

@@ -13,22 +13,7 @@ import torch
 import graphity.environment.graph
 import graphity.data
 
-def aug(data, labels):
-	count_0, count_1 = 0,0
-	for label in labels:
-		if label == 0: count_0 += 1
-		else: count_1 += 1
-
-	diff = count_1 - count_0
-	to_add = []
-
-	if count_0 == 0 or diff // count_0 == 0: return []
-
-	for (label, item) in zip(labels, data):
-		if label == 0:to_add.extend([(0, item) for _ in range(diff//count_1)])
-	return to_add
 def eval(H, dataset, clique_size, graph_size):
-	clf = svm.SVC()
 	d_p, t_p, c_p = [], [], []
 	d_i, t_i, c_i = [], [], []
 	for value, label in dataset:

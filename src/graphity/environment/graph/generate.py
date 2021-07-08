@@ -93,25 +93,20 @@ def _add_node(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     return cliques, {"t": f"Adding node: {len(G)-1}"}
 
 def _do_add_edge(G, cliques, maximal_clique_size, graph_size, n_1, n_2, _io):
-        c_1 = _collate_max_cliques(n_1, cliques)
-        c_2 = _collate_max_cliques(n_2, cliques)
-        valid, overlap_nodes = True, set()
+    print(f"Adding edge ({n_1}, {n_2})", file=_io)
+    G.add_edge(n_1, n_2)
 
-
-        for (i,j) in itertools.product(c_1, c_2):
-            if len(i|j) <= maximal_clique_size+1: valid=False
-            elif len(i&j) == maximal_clique_size-2: overlap_nodes.add(tuple(i&j))
-        if valid and len(overlap_nodes):
-            print(f"Adding edge {n_1, n_2}", file=_io)
-            G.add_edge(n_1, n_2)
-            new_cliques = [{j for j in i}|{n_1,n_2} for i in overlap_nodes]
-            cliques.extend(new_cliques)
-            print(f"This adds the cliques: {new_cliques}", file=_io)
-            print(f"{c_1}, {c_2}", file=_io)
-            print(f"This brings the clique list to {cliques}", file=_io)
-            print("Done adding edge\n", file=_io)
-            return True, cliques
-        else: return False, cliques
+    new_cliques =  [set(i) for i in nx.find_cliques(G)]
+    valid = all(len(clique) == maximal_clique_size for clique in new_cliques)
+    print(G.edges(), file=_io)
+    if valid:
+        print(f"This brings the clique list to {new_cliques}", file=_io)
+        print("Done adding edge\n", file=_io)
+        return True, new_cliques
+    else:
+        print("Rejecting add.", file=_io)
+        G.remove_edge(n_1, n_2)
+        return False, cliques
 
 def _add_edge(G, cliques, maximal_clique_size, graph_size, _io, do_anim):
     """

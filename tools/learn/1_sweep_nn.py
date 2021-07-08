@@ -46,7 +46,7 @@ def main(args):
 	procs, procs_ret = [], []
 	best_config, best_terms, best_acc = None, [], 0
 	with multiprocessing.Manager() as manager:
-		with multiprocessing.Pool(processes=16) as pool:
+		with multiprocessing.Pool(processes=32) as pool:
 			for (i,j, k, l) in itertools.product(range(1,5), range(1,5), range(1,5), range(1,5)):
 				pargs = manager.dict()
 				# MUST NOT DISCARD SOMETHING GIVEN TO US BY MANAGER

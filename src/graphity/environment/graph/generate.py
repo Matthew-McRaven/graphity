@@ -6,7 +6,7 @@ from typing import ItemsView
 import matplotlib.pyplot as plt
 import matplotlib.animation
 import networkx as nx
-from networkx.algorithms import clique
+import networkx.generators.classic
 import numpy as np
 from numpy.random import default_rng
 import torch.tensor
@@ -249,7 +249,8 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
     assert graph_size >= maximal_clique_size
 
     # Generate a complete graph.
-    G = nx.complete_graph(maximal_clique_size)
+    if random.random() > .5: G = nx.generators.classic.turan_graph(graph_size, maximal_clique_size)
+    else: G = nx.complete_graph(maximal_clique_size)
     # Get a list of all maximal cliques, which is just the set of all nodes.
 
     cliques = [set(i) for i in nx.find_cliques(G)]

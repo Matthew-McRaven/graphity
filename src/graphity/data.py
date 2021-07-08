@@ -1,6 +1,7 @@
 import math
 import os
 from pathlib import Path
+import pickle
 import random
 import shutil
 
@@ -14,26 +15,21 @@ class GeneratedGraphDataset(Dataset):
 	"""
 	Make an iterable of pure, impure graphs in memory, and use it a pytorch dataset.
 	"""
-	def __init__(self, clique_size, graph_size, count, transform=None, target_transform=None):
+	def __init__(self, clique_size, graph_size, count):
 		self.count = count
-		things = [(0, graphity.environment.graph.random_pure_graph(clique_size, graph_size)) for i in range(count//2)]
+		things = [graphity.environment.graph.random_pure_graph(clique_size, graph_size) for i in range(count//2)]
 		p_edge = things[0][1].float().mean()
-		not_things = [(1, graphity.environment.graph.random_adj_matrix(things[0][1].shape[0], p=p_edge)) for i in range(count-len(things))]
+		not_things = [graphity.environment.graph.random_adj_matrix(things[0][1].shape[0], p=p_edge) for i in range(count-len(things))]
 		self.data = things+not_things
 		random.shuffle(self.data)
-		self.transform = transform
-		self.target_transform = target_transform
+		self.bins = set(graph.purity for graph in self.data)
 
 	def __len__(self):
 		return len(self.data)
 
 	def __getitem__(self, idx):
-		label, image = self.data[idx]
-		if self.transform:
-			image = self.transform(image)
-		if self.target_transform:
-			label = self.target_transform(label)
-		return image.float(), label
+		graph = self.data[idx]
+		return graph.float(), graph.purity
 
 class MemoryGraphDataset(Dataset):
 	"""
@@ -49,22 +45,28 @@ class MemoryGraphDataset(Dataset):
 		in both training/testing datasets.
 		This effect ir most pronounced at small N.
 		"""
-		count_0, count_1 = 0,0
-		for (label, item) in dataset:
-			if label == 0: count_0 += 1
-			else: count_1 += 1
-		diff = count_1 - count_0
+		bins = {}
+		for (purity, item) in dataset:
+			if purity not in bins: bins[purity]=1
+			else: bins[purity]+=1
+		
+		total, largest_group = sum(bins.values()), max(bins.values())
+		# Determine how many to add from each bin.
+		add_sizes = {k:largest_group-v for (k,v) in bins.items()}
+		print(add_sizes)
 		to_add = []
-		if count_0 == 0 or diff // count_0 == 0: return []
-		for (label, item) in dataset:
-			if label == 0:to_add.extend([(0, item) for _ in range(diff//count_0)])
-		return to_add
+		for (purity, item) in dataset:
+			if add_sizes[purity] == 0: continue
+			else: count = largest_group // add_sizes[purity]
+			if count == 0: continue
+			else: to_add.extend((purity, item) for _ in range(count))
+		return to_add, set(bins.keys())
 
 	def __init__(self, dataset):
 		"""
 		:param dataset: An iterable of (label, graph) pairs.
 		"""
-		to_add = self.aug_ids(dataset)
+		to_add, self.bins = self.aug_ids(dataset)
 		dataset.extend(to_add)
 		self.data = dataset
 		random.shuffle(self.data)
@@ -74,8 +76,8 @@ class MemoryGraphDataset(Dataset):
 		return len(self.data)
 
 	def __getitem__(self, idx):
-		label, image = self.data[idx]
-		return image.float(), label
+		purity, graph = self.data[idx]
+		return graph.float(), purity
 
 class FileGraphDataset(Dataset):
 	"""
@@ -95,16 +97,17 @@ class FileGraphDataset(Dataset):
 		for f in os.listdir(pure_dir):
 			path = (Path(pure_dir)/f).resolve()
 			if not path.is_file(): continue
-			things.append((0,torch.load(path)))
+			with open(path, "rb") as _f: not_things.append(pickle.load(_f))
 		if impure_dir:
 			for f in os.listdir(impure_dir):
 				path = (Path(impure_dir)/f).resolve()
 				if not path.is_file(): continue
-				not_things.append((1,torch.load(path)))
+				with open(path, "rb") as _f: not_things.append(pickle.load(_f))
 
 		self.data = things+not_things
 		random.shuffle(self.data)
 		self.count = len(things) + len(not_things)
+		self.bins = set(item[0] for item in self.data)
 
 	def split(self, split_ids):
 		"""
@@ -126,8 +129,8 @@ class FileGraphDataset(Dataset):
 		return len(self.data)
 
 	def __getitem__(self, idx):
-		label, image = self.data[idx]
-		return image.float(), label
+		purity, graph = self.data[idx]
+		return graph.float(), purity 
 
 def save_dataset(dataset, dir):
 	"""
@@ -139,7 +142,8 @@ def save_dataset(dataset, dir):
 	# Delete all existing data items, and re-create directory
 	if parent.exists(): shutil.rmtree(parent)
 	parent.mkdir(parents=True, exist_ok=False)
-	for idx, graph in enumerate(dataset):torch.save(graph, parent/f"{idx}.ten")
+	for idx, graph in enumerate(dataset):
+		with open(parent/f"{idx}.ten", "wb+") as f: pickle.dump((graph.purity, graph), f)
 
 def create_pure_dataset(count, clique_size, graph_size):
 	"""
@@ -162,6 +166,7 @@ def create_pure_dataset(count, clique_size, graph_size):
 			if (dedup == thing).all():
 				possible = False
 				break
+		thing.purity = 1
 		if possible: dedup_things.append(thing)
 	return dedup_things
 
@@ -195,5 +200,6 @@ def create_impure_dataset(count, clique_size, graph_size):
 			if not possible: break
 			elif (dedup == thing).all(): possible = False
 		# Exclude all pure graphs
-		if possible and not graphity.utils.is_pure(thing, clique_size): dedup_things.append(thing)
+		thing.purity = purity = graphity.utils.purity_degree(thing, clique_size) 
+		if possible and not purity == 1: dedup_things.append(thing)
 	return dedup_things

@@ -270,27 +270,34 @@ class SumTerm(nn.Module):
 		elif len(x.shape) > 3: assert 0
 		return torch.sigmoid(torch.stack([self.apply_coef(i) for i in x[:]]))
 
-def evaluate(net, testloader, dev, count=None):
-	classes = ('pure', 'not pure')
+def nearest(prediction, bins):
+	best_bins = np.abs(bins - prediction.item())
+	return bins[best_bins.argmin()]
+
+def evaluate(net, testloader, bins, dev,  count=None):
 	correct, total = 0, 0
-	correct_pred, total_pred = {classname: 0 for classname in classes}, {classname: 0 for classname in classes}
+	bins = np.array(list(bins))
+	correct_pred, total_pred = {item:0 for item in bins}, {item:0 for item in bins}
 	with torch.no_grad():
 		for data in testloader:
-			images, labels = data
-			images, labels = images.to(dev), labels.to(dev)
+			images, purity = data
+			images, purity = images.to(dev), purity.to(dev)
 			outputs = net(images)    
-			predictions = outputs.round()
-			total += labels.size(0)
-			correct += (predictions == labels).sum().item()
-			# collect the correct predictions for each class
-			for label, prediction in zip(labels, predictions):
-				if label == prediction: correct_pred[classes[label]] += 1
-				total_pred[classes[label]] += 1
+			total += purity.size(0)
+
+			for (guess, _purity) in zip(outputs, purity):
+				guess = nearest(guess, bins)
+				_purity = nearest(_purity, bins)
+				if(_purity == guess): 
+					correct_pred[_purity.item()] += 1
+					correct += 1
+				total_pred[_purity.item()] += 1
+
 
 			if count is None: pass
 			elif count > 0: count -= len(images)
 			elif count <= 0: break
-	return correct/total, (correct_pred, total_pred)
+	return  correct/total, (correct_pred, total_pred)
 
 def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epochs=100, batch_size=10, dev='cpu', n_splits=2):
 	# K-Fold cross validation from: https://www.machinecurve.com/index.php/2021/02/03/how-to-use-k-fold-cross-validation-with-pytorch/
@@ -310,7 +317,6 @@ def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epoch
 		# Define data loaders for training and testing data in this fold
 		trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
 		testloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
-
 		for epoch in range(epochs):  # loop over the dataset multiple times
 			running_loss = 0.0
 			for i, data in enumerate(trainloader, 0):
@@ -328,12 +334,12 @@ def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epoch
 						(epoch + 1, i + 1, running_loss / 2000))
 					running_loss = 0.0
 					
-		accuracy, (correct_pred, total_pred) = evaluate(net, testloader, dev=dev)
+		accuracy, (correct_pred, total_pred) = evaluate(net, testloader, test_dataset.bins, dev=dev)
 		all_accuracy.append(accuracy)
 		print(f'(k_{clique_size},g_{graph_size})Accuracy of the network on the {test_dataset.count} test images: {100 * accuracy}')
 		for classname, correct_count in correct_pred.items():
 			accuracy = 100 * float(correct_count) / total_pred[classname]
-			print("Accuracy for class {:5s} is: {:.1f} %".format(classname, accuracy))
+			print("Accuracy for purity-ratio {:5f} is: {:.1f} %".format(classname, accuracy))
 		if accuracy > best_accuracy: best_config = net
 
 	return best_config, best_accuracy, all_accuracy

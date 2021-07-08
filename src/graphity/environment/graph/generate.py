@@ -257,9 +257,11 @@ def random_pure_graph(maximal_clique_size, graph_size, do_anim = True):
     print(f"Starting with the following cliques: {cliques}", file=_io)
 
     if do_anim: frames = []
+    weights = [random.random() for _ in range(3)]
+    weights = np.exp(weights)/sum(np.exp(weights))
     # Extend the graph until we hit the desired number of nodes.
     for _ in range(graph_size**2):
-        f = (random.choice([_add_node, _add_edge, _remove_edge]))
+        f = (random.choices([_add_node, _add_edge, _remove_edge], weights=weights))[0]
         if f == _add_node and len(G) == graph_size: continue
         cliques, items = f(G, cliques, maximal_clique_size, graph_size, _io, do_anim)
         if not items: continue

@@ -19,7 +19,7 @@ class score:
 		self.net = net
 	def __call__(self, ind): 
 		self.net.stuff_weights(ind)
-		accuracy, _ =  graphity.environment.graph.evaluate(self.net, self.eval_loader, "cpu")
+		accuracy, _ =  graphity.environment.graph.evaluate(self.net, self.eval_loader, "cpu", count=1000)
 		return 100*accuracy,
 
 
@@ -40,7 +40,7 @@ def evolve_weights(eval_dataset, graph_size, net):
 	toolbox.register("evaluate", score(eval_dataset, graph_size, net))
 	#toolbox.decorate("evaluate", tools.DeltaPenalty(feasible, -2*max_drinks, distance))
 	pop = toolbox.population(n=10)
-	CXPB, MUTPB, NGEN = 0.5, 0.2, 1
+	CXPB, MUTPB, NGEN = 0.5, 0.2, 10
 
 	# Evaluate the entire population
 	fitnesses = map(toolbox.evaluate, pop)
@@ -88,9 +88,9 @@ def main(args):
 
 
 	terms = []
-	terms.append(ACoef(graph_size, rows=4, cols=2))
-	terms.append(FACoef(graph_size, rows=4, cols=2))
-	net = SumTerm(graph_size, terms)
+	terms.append(ACoef(rows=4, cols=2))
+	terms.append(FACoef(rows=4, cols=2))
+	net = SumTerm(terms)
 
 	pop = evolve_weights(dataset, graph_size, net)
 	
@@ -101,7 +101,7 @@ def main(args):
 		if acc > best_acc: 
 			best_acc = acc
 			best_ind = ind
-	net.stuff_weights(ind)
+	net.stuff_weights(best_ind)
 	# Save items to disk
 	parent = Path("data/models/gp/")
 	parent.mkdir(parents=True, exist_ok=True)

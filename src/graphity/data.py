@@ -53,7 +53,6 @@ class MemoryGraphDataset(Dataset):
 		total, largest_group = sum(bins.values()), max(bins.values())
 		# Determine how many to add from each bin.
 		add_sizes = {k:largest_group-v for (k,v) in bins.items()}
-		print(add_sizes)
 		to_add = []
 		for (purity, item) in dataset:
 			if add_sizes[purity] == 0: continue

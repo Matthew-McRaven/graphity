@@ -23,7 +23,7 @@ def contribution(adj, d, keep_diag):
         n = temp.shape[1]
         diag = temp.diagonal(dim1=-2,dim2=-1) * torch.eye(n, n)
         #print(adj, "\n", temp)
-        # Subtract out diagonal, so diagonal is 0.
+        # Subtract out diagonal to eliminate self loop contributions.
         temp -= diag
     return temp/2
 

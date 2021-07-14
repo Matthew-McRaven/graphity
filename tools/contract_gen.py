@@ -126,12 +126,9 @@ def generate(n, k):
 	assert k*len(T.nodes()) >= n
 	# Gi
 	G_cliques = {node:[[i,] for i in range(k*node, k*(node+1))] for node in T.nodes()}
-	while len(enumerate_verticies(G_cliques)) > n:
-		T, G_cliques = contract_vertex(T, G_cliques)
+	while len(enumerate_verticies(G_cliques)) > n: T, G_cliques = contract_vertex(T, G_cliques)
 
 	return graph_from_cliques(G_cliques), T
 
 # Generate a bunch of random graphs and see how long it takes.
-
-if __name__ == "__main__": [generate(7, 3) for _ in range(10)]
-
+if __name__ == "__main__": [generate(7, 3) for _ in range(10000)]

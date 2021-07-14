@@ -130,10 +130,9 @@ def generate(n, k):
 	T = nx.generators.trees.random_tree(math.ceil(2*(n/k)))
 	# Each vertex in T corresponds to k verticies in G. G must start with more than n verticies.
 	assert k*len(T.nodes()) >= n
-	# Gi
+	# Since each clique is centered around a vertex in T, we can relate G's vertex labels to T's.
 	G_cliques = {node:[[i,] for i in range(k*node, k*(node+1))] for node in T.nodes()}
 	while len(enumerate_verticies(G_cliques)) > n: T, G_cliques = contract_vertex(T, G_cliques)
-
 	return graph_from_cliques(G_cliques), T
 
 # Generate a bunch of random graphs and see how long it takes.

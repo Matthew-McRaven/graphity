@@ -74,7 +74,7 @@ def is_pure(tensor, k):
 	"""
 	if type(tensor) != nx.Graph: G = nx.from_numpy_matrix(tensor.cpu().numpy())
 	else: G = tensor
-	sizes = nx.node_clique_number(G, [i for i in range(len(G))])
+	sizes = nx.node_clique_number(G, list(G.nodes()))
 	# Must iterate over values, since sizes is a dict.
 	cond = all(x == k for x in sizes.values())
 	for p in  nx.find_cliques(G): cond = cond and len(p) == k
@@ -138,7 +138,7 @@ def print_as_graph(tensor, name="failing.png"):
 
 	# Drawing example taken from:
 	#    https://networkx.github.io/documentation/latest/auto_examples/drawing/plot_weighted_graph.html
-	pos = nx.spring_layout(G) 
+	pos = nx.spring_layout(G, k=0.15, iterations=20) 
 	# Draw nodes & edges.
 	nx.draw_networkx_nodes(G, pos, node_size=700)
 	nx.draw_networkx_labels(G, pos)

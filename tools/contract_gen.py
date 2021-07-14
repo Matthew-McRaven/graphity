@@ -106,7 +106,7 @@ def enumerate_verticies(cliques):
 def list_to_name(vertex): return ",".join(str(i) for i in vertex)
 
 # Given a list of cliques, construct the associated graph.
-def graph_from_cliques(G_cliques):
+def graph_from_cliques(G_cliques, relabel=True):
 	G = nx.Graph()
 	for clique in G_cliques.values():
 		# Get the name of each vertex in the clique. Necessary to properly add edges to G.
@@ -114,7 +114,13 @@ def graph_from_cliques(G_cliques):
 		# The list of all edges between the verticies in the clique.
 		comb = list(itertools.combinations(verticies,2))
 		G.add_edges_from(comb)
-	return G
+	if not relabel: return G
+
+	# Change the contracted verticies names to be a series of integers.
+	new_labels = [i for i in range(len(G))]
+	random.shuffle(new_labels)
+	map_dict = {old:new for (old, new) in zip(G.nodes(), new_labels)}
+	return nx.relabel_nodes(G, map_dict)
 
 # Create a pure graph of size n with a maximal clique size of k.
 def generate(n, k):

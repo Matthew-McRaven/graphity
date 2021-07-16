@@ -11,10 +11,13 @@ import torch
 
 import graphity.utils
 
+def shuffle(lst):
+	random.shuffle(lst)
+	return lst
 # Return all pairs of verticies which are connected via an edge.
 def all_adjacent_nodes(T):
-	for t_1 in T.nodes():
-		for t_2 in T.neighbors(t_1):
+	for t_1 in shuffle(list(T.nodes)):
+		for t_2 in shuffle(list(T.neighbors(t_1))):
 			if str(t_1) > str(t_2): continue
 			yield (t_1, t_2)
 
@@ -51,8 +54,8 @@ def contract_edge(T, G_cliques, t_1, t_2):
 
 def enumerate_clique_pairs(t_1, t_2, G_cliques):
 	seen = list()
-	for contract_1 in G_cliques[t_1]:
-		for contract_2 in G_cliques[t_2]:
+	for contract_1 in shuffle(G_cliques[t_1]):
+		for contract_2 in shuffle(G_cliques[t_2]):
 			if contract_1 > contract_2: continue
 			if contract_1 in G_cliques[t_2] or contract_2 in G_cliques[t_1]: continue
 			else: yield (contract_1, contract_2)
@@ -123,13 +126,13 @@ def graph_from_cliques(G_cliques):
 		map_dict = {old:new for (old, new) in zip(G.nodes(), new_labels)}
 		yield nx.relabel_nodes(G, map_dict)"""
 
-def generate_all(n, k):
+def enumerate_pure(n, k, visited=-1):
 	seen_T, seen_G = [], []
 	tg = nx.generators.classic.turan_graph(6,3)
 	# Create a seed graph with an arbitrary number of free-floating cliques.
 	# There is, as-of-yet not guidance on how to pick this number, other than
 	# there needing to be at least as many verticies as your target n.
-	for seed in prufer_sequence(math.ceil(2*n)):
+	for seed in prufer_sequence(math.ceil(n+1)):
 		T = nx.from_prufer_sequence(seed)
 		gen = (nx.is_isomorphic(T, dedup) for dedup in seen_T)
 		if not any(gen): seen_T.append(T)
@@ -139,17 +142,15 @@ def generate_all(n, k):
 		count, last_print = 0, 0
 		for g, count in contract_graphs(n, T, G_cliques, count):
 			if count > last_print+1000: print(f"Graphs: {(last_print:=count)}")
+			if visited > 0 and visited < count: return seen_G
 			G = graph_from_cliques(g)
-			#for relabel in all_graph_from_cliques(g):
-				#if(count:=count+1)%1000==0:print(count)
-				#if not relabel in seen_G: seen_G.append(relabel)
-			#if not any((nx.is_isomorphic(G, dedup) for dedup in seen_G)): seen_G.append(G)
-			if nx.is_isomorphic(tg, G): 
-				nx.draw(G)
-				plt.savefig("turan.png")
-				assert 0
-
+			gen = (nx.is_isomorphic(G, dedup) for dedup in seen_G)
+			if not any(gen): seen_G.append(G)
 	return seen_G
-
-lst = generate_all(6,3)
-print(len(lst))
+		
+if __name__ == "__main__":
+	# Enumerate a limited number of graphs.
+	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
+	lst = enumerate_pure(6,3, 10000)
+	# However, it can also enumerate all possible graphs if not given a count.
+	lst = enumerate_pure(5,3)

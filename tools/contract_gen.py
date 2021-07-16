@@ -6,6 +6,7 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.animation
 import networkx as nx
+import torch
 
 import graphity.utils
 
@@ -136,4 +137,20 @@ def generate(n, k):
 	return graph_from_cliques(G_cliques), T
 
 # Generate a bunch of random graphs and see how long it takes.
-if __name__ == "__main__": [generate(7, 3) for _ in range(10000)]
+if __name__ == "__main__": 
+	# Don't generate all graphs at once. Use a generator expression so we can create them as needed.
+	# Will reduce memory footprint for large counts.
+	lst = (generate(6, 3)[0] for _ in range(100000))
+	dedup_things = []
+	for i in lst: 
+		# Check that we don't already have the graph i in our dataset. Isomorphism is really hard to check, but as n
+		# increases, the liklihood of finding isomorphics graphs drastically decreases. This method also does some clever
+		# checks to prevent needless NP-hard searches.
+		gen = (nx.is_isomorphic(i, dedup) for dedup in dedup_things)
+		if not any(gen): dedup_things.append(i)
+	#dedup_things = [torch.tensor(nx.to_numpy_array(d)) for d in dedup_things]
+	for idx, thing in enumerate(dedup_things):
+		nx.draw(thing)
+		plt.savefig(f"{idx}.png")
+		plt.clf()
+	print(len(dedup_things))

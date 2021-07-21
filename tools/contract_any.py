@@ -7,6 +7,7 @@ import time
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from networkx.algorithms import clique
 import torch
 
 import graphity.utils
@@ -59,37 +60,37 @@ def enumerate_verticies(incidence):
 		for vertex in clique: verticies.add(vertex)
 	return verticies
 
-def contract_graphs(n, k, T, TG_incidence, count):
-	if len(enumerate_verticies(TG_incidence)) == n: yield TG_incidence, count+1
-	else:
-		for (t_1, t_2) in all_adjacent_nodes(T):
-			for (contract_1, contract_2) in enumerate_incidence_pairs(t_1, t_2, TG_incidence):
-				assert contract_1 < contract_2
-				count += 1
-				
-				new_TG_incidence = copy.deepcopy(TG_incidence)
-				break_all = False
+def contract_graphs(M,k, T, TG_incidence, count):
+	# Don't allow graphs with fewer than M distinct cliques.
+	for (clique1, clique2) in itertools.combinations(TG_incidence.values(), 2):
+		if all(i in clique2 for i in clique1): break
+	else: yield TG_incidence, count+1
 
-				# Can't contract verticies if some clique contains c_1 and c_2.
-				for clique in new_TG_incidence.values():
-					if contract_1 in clique and contract_2 in clique: break_all = True
-				if break_all: continue
+	for (t_1, t_2) in all_adjacent_nodes(T):
+		for (contract_1, contract_2) in enumerate_incidence_pairs(t_1, t_2, TG_incidence):
+			assert contract_1 < contract_2
+			count += 1
+			
+			new_TG_incidence = copy.deepcopy(TG_incidence)
+			break_all = False
 
-				# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
-				for clique in new_TG_incidence.values():
-					start_len = len(clique)
-					if contract_2 in clique: clique.remove(contract_2)
-					if len(clique) != start_len: clique.add(contract_1)
+			# Can't contract verticies if some clique contains c_1 and c_2.
+			for clique in new_TG_incidence.values():
+				if contract_1 in clique and contract_2 in clique: break_all = True
+			if break_all: continue
 
-				if expands_max_clique(k, contract_1, new_TG_incidence): continue
+			# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
+			for clique in new_TG_incidence.values():
+				start_len = len(clique)
+				if contract_2 in clique: clique.remove(contract_2)
+				if len(clique) != start_len: clique.add(contract_1)
 
-				# Perform edge contraction if necessary. 
-				
-				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]):
-					yield None, count; continue
-				else: new_T = T
-				
-				for g, count in contract_graphs(n, k, new_T, new_TG_incidence, count):
+			if expands_max_clique(k, contract_1, new_TG_incidence): continue
+
+			# Do not perform edge contraction, since it can reduce max clique size.
+			if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]): yield None, count
+			else:
+				for g, count in contract_graphs(M, k, T, new_TG_incidence, count):
 					if g is None: continue
 					else: yield g, count
 
@@ -104,12 +105,23 @@ def graph_from_incidence(TG_incidence):
 		G.add_edges_from(comb)
 	return G
 
-def enumerate_pure(n, k, visited=-1):
+# Load the seed undirected graphs.
+# Cliques live on the edge(s).
+def seed_graph(M, connected=False):
+	
+	if connected: suffix = "c"
+	else: suffix = "d1"
+
+	for idx, seed in enumerate(nx.read_graph6(f"data/undirected/{M}{suffix}.g6")):
+		yield nx.convert_node_labels_to_integers(nx.line_graph(seed))
+
+def enumerate_pure(M, k, visited=-1):
 	seen_T, seen_G = [], []
+	count, last_print = 0, 0
 	# Create a seed graph with an arbitrary number of free-floating cliques.
 	# There is, as-of-yet not guidance on how to pick this number, other than
 	# there needing to be at least as many verticies as your target n.
-	for idx, T in enumerate((nx.partial_duplication_graph(5*n//7, n//2, .4, .2) for i in range(20))):
+	for idx, T in enumerate(seed_graph(M)):
 		#nx.draw(T)
 		#plt.savefig(f"{idx}.png")
 		#plt.clf()
@@ -117,11 +129,10 @@ def enumerate_pure(n, k, visited=-1):
 		gen = (nx.is_isomorphic(T, dedup) for dedup in seen_T)
 		if not any(gen): seen_T.append(T)
 		else: continue
-		assert k*len(T.nodes()) >= n
+		assert k*len(T.nodes()) == k*M
 		TG_incidence = {node:set(i for i in range(k*node, k*(node+1))) for node in T.nodes()}
-		count, last_print = 0, 0
-		for g, count in contract_graphs(n, k, T, TG_incidence, count):
-			#assert 0
+		
+		for g, count in contract_graphs(M, k, T, TG_incidence, count):
 			if count > last_print+1000: print(f"Graphs: {(last_print:=count)}")
 			if visited > 0 and visited < count: return seen_G
 
@@ -133,8 +144,8 @@ def enumerate_pure(n, k, visited=-1):
 if __name__ == "__main__":
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	#lst = enumerate_pure(6,3, 1000000)
-	lst = enumerate_pure(6,3)
+	lst = enumerate_pure(4,3)
+	#lst = enumerate_pure(6,3)
 	print(len(lst))
 	for idx, g in enumerate(lst):
 		pos = nx.spring_layout(g)

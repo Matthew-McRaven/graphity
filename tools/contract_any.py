@@ -11,21 +11,6 @@ import torch
 
 import graphity.utils
 
-# If t_1 and t_2 have the exact same clique set, perform edge contraction on nodes t_1 and t_2 in T.
-def contract_edge(T, G_cliques, t_1, t_2):
-	# If t_1's vertex set does not match t_2's vertex set, then t_1 != t_2.
-	# In this case, we can't safely perform edge contraction between the verticies in T.
-	assert sorted(G_cliques[t_1]) == sorted(G_cliques[t_2])
-
-	# Must get neighbors before adding edges, or we will be modifying the state dict as we read it.
-	for vertex in list(T.neighbors(t_2)): T.add_edge(t_1, vertex)
-	
-	# Verticies t_1 and t_2 no longer exist -- they have been contracted into t_new. 
-	# Therefore, must delete any outstanding references to t_1 and t_2.
-	del G_cliques[t_1]
-	T.remove_node(t_1)
-
-
 def expands_max_clique(k, center, TG_incidence):
 
 	# Get all the neighbors of the center vertex, including center.
@@ -74,7 +59,7 @@ def enumerate_verticies(incidence):
 		for vertex in clique: verticies.add(vertex)
 	return verticies
 
-def contract_graphs(n, k, T, TG_incidence, count, contract_T=True):
+def contract_graphs(n, k, T, TG_incidence, count):
 	if len(enumerate_verticies(TG_incidence)) == n: yield TG_incidence, count+1
 	else:
 		for (t_1, t_2) in all_adjacent_nodes(T):
@@ -101,14 +86,12 @@ def contract_graphs(n, k, T, TG_incidence, count, contract_T=True):
 				# Perform edge contraction if necessary. 
 				
 				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]):
-					if contract_T: contract_edge(new_T:=copy.deepcopy(T) , new_TG_incidence, t_1, t_2)
-					else: yield None, count; continue
+					yield None, count; continue
 				else: new_T = T
 				
-				for g, count in contract_graphs(n, k, new_T, new_TG_incidence, count, contract_T=contract_T):
+				for g, count in contract_graphs(n, k, new_T, new_TG_incidence, count):
 					if g is None: continue
 					else: yield g, count
-
 
 # Given a list of cliques, construct the associated graph.
 def graph_from_incidence(TG_incidence):

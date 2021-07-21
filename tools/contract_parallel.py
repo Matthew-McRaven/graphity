@@ -30,7 +30,7 @@ class Counter(object):
 	@property
 	def lp(self):
 		return self._lp.value
-		
+
 # Must create one global, shared counter between all processes.
 def init_ctr(counter):
 	global ctr
@@ -84,42 +84,51 @@ def enumerate_verticies(incidence):
 		for vertex in clique: verticies.add(vertex)
 	return verticies
 
-def contract_graphs(M, k, T, TG_incidence):
+def canonicalize(sequence):
+	return tuple(sorted(sequence, key=lambda x: (-x[0], x[1])))
+
+def contract_graphs(M, k, T, TG_incidence, subsequences=set(), sequence=tuple()):
 	global ctr
-	# Don't allow graphs with fewer than M distinct cliques.
-	for (clique1, clique2) in itertools.combinations(TG_incidence.values(), 2):
-		if all(i in clique2 for i in clique1): break
-	else: 
-		ctr.increment()
-		yield TG_incidence
-
-	for (t_1, t_2) in all_adjacent_nodes(T):
-		for (contract_1, contract_2) in enumerate_incidence_pairs(t_1, t_2, TG_incidence):
-			assert contract_1 < contract_2
+	if sequence in subsequences: yield None
+	else:
+		# Don't allow graphs with fewer than M distinct cliques.
+		for (clique1, clique2) in itertools.combinations(TG_incidence.values(), 2):
+			if all(i in clique2 for i in clique1): break
+		else:
 			ctr.increment()
-			
-			new_TG_incidence = copy.deepcopy(TG_incidence)
-			break_all = False
+			subsequences.add(sequence)
+			yield TG_incidence
 
-			# Can't contract verticies if some clique contains c_1 and c_2.
-			for clique in new_TG_incidence.values():
-				if contract_1 in clique and contract_2 in clique: break_all = True
-			if break_all: continue
+		for (t_1, t_2) in all_adjacent_nodes(T):
+			for (contract_1, contract_2) in enumerate_incidence_pairs(t_1, t_2, TG_incidence):
+				assert contract_1 < contract_2
+				ctr.increment()
 
-			# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
-			for clique in new_TG_incidence.values():
-				start_len = len(clique)
-				if contract_2 in clique: clique.remove(contract_2)
-				if len(clique) != start_len: clique.add(contract_1)
+				new_sequence = canonicalize(sequence+((contract_1, contract_2),))
+				if new_sequence in subsequences: continue
 
-			if expands_max_clique(k, contract_1, new_TG_incidence): continue
+				new_TG_incidence = copy.deepcopy(TG_incidence)
+				break_all = False
 
-			# Do not perform edge contraction, since it can reduce max clique size.
-			if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]): yield None
-			else:
-				for g in contract_graphs(M, k, T, new_TG_incidence):
-					if g is None: continue
-					else: yield g
+				# Can't contract verticies if some clique contains c_1 and c_2.
+				for clique in new_TG_incidence.values():
+					if contract_1 in clique and contract_2 in clique: break_all = True
+				if break_all: continue
+
+				# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
+				for clique in new_TG_incidence.values():
+					start_len = len(clique)
+					if contract_2 in clique: clique.remove(contract_2)
+					if len(clique) != start_len: clique.add(contract_1)
+
+				if expands_max_clique(k, contract_1, new_TG_incidence): continue
+
+				# Do not perform edge contraction, since it can reduce max clique size.
+				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]): yield None
+				else:
+					for g in contract_graphs(M, k, T, new_TG_incidence, subsequences, new_sequence):
+						if g is None: continue
+						else: yield g
 
 # Given a list of cliques, construct the associated graph.
 def graph_from_incidence(TG_incidence):
@@ -166,14 +175,15 @@ def enumerate_pure(M, k, visited=-1):
 			global_G = []
 			for proc in procs_ret:
 				for G in proc:
-					if not any((nx.is_isomorphic(G, dedup) for dedup in global_G)): global_G.append(G)
+					if G is None: continue
+					elif not any((nx.is_isomorphic(G, dedup) for dedup in global_G)): global_G.append(G)
 			return global_G
 
 		
 if __name__ == "__main__":
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(3,3)
+	lst = enumerate_pure(4,3)
 	#lst = enumerate_pure(6,3)
 	print(len(lst))
 	for idx, g in enumerate(lst):

@@ -1,5 +1,8 @@
-impure/*/*
+impure/**/*
+impure
 pure/**/*
+pure
 models/**/*
+models
 **/*.ten
 **/*.pth

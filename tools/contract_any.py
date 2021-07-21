@@ -74,7 +74,7 @@ def enumerate_verticies(incidence):
 		for vertex in clique: verticies.add(vertex)
 	return verticies
 
-def contract_graphs(n, k, T, TG_incidence, count):
+def contract_graphs(n, k, T, TG_incidence, count, contract_T=True):
 	if len(enumerate_verticies(TG_incidence)) == n: yield TG_incidence, count+1
 	else:
 		for (t_1, t_2) in all_adjacent_nodes(T):
@@ -101,11 +101,11 @@ def contract_graphs(n, k, T, TG_incidence, count):
 				# Perform edge contraction if necessary. 
 				
 				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]):
-					contract_edge(new_T:=copy.deepcopy(T) , new_TG_incidence, t_1, t_2)
-					#yield None, count; continue
+					if contract_T: contract_edge(new_T:=copy.deepcopy(T) , new_TG_incidence, t_1, t_2)
+					else: yield None, count; continue
 				else: new_T = T
 				
-				for g, count in contract_graphs(n, k, new_T, new_TG_incidence, count):
+				for g, count in contract_graphs(n, k, new_T, new_TG_incidence, count, contract_T=contract_T):
 					if g is None: continue
 					else: yield g, count
 
@@ -120,22 +120,13 @@ def graph_from_incidence(TG_incidence):
 		comb = list(itertools.combinations(verticies,2))
 		G.add_edges_from(comb)
 	return G
-	"""# Enumerate all possible relabelings of the graph.
-	# Change the contracted verticies names to be a series of integers.
-	new_labels = [i for i in range(len(G))]
-	
-	count = 0
-	for _ in itertools.permutations(new_labels, len(G)): 
-		#if (count:= count+1) == 20: return
-		map_dict = {old:new for (old, new) in zip(G.nodes(), new_labels)}
-		yield nx.relabel_nodes(G, map_dict)"""
 
 def enumerate_pure(n, k, visited=-1):
 	seen_T, seen_G = [], []
 	# Create a seed graph with an arbitrary number of free-floating cliques.
 	# There is, as-of-yet not guidance on how to pick this number, other than
 	# there needing to be at least as many verticies as your target n.
-	for idx, T in enumerate((nx.partial_duplication_graph(5*n//7, n//2, .4, .2) for i in range(100))):
+	for idx, T in enumerate((nx.partial_duplication_graph(5*n//7, n//2, .4, .2) for i in range(20))):
 		#nx.draw(T)
 		#plt.savefig(f"{idx}.png")
 		#plt.clf()
@@ -159,7 +150,8 @@ def enumerate_pure(n, k, visited=-1):
 if __name__ == "__main__":
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(6,3, 1000000)
+	#lst = enumerate_pure(6,3, 1000000)
+	lst = enumerate_pure(6,3)
 	print(len(lst))
 	for idx, g in enumerate(lst):
 		pos = nx.spring_layout(g)
@@ -169,4 +161,4 @@ if __name__ == "__main__":
 		plt.savefig(f"{idx}.png")
 		plt.clf()
 	# However, it can also enumerate all possible graphs if not given a count.
-	#lst = enumerate_pure(5,3)
+	

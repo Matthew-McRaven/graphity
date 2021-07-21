@@ -10,6 +10,8 @@ import torch
 
 import graphity.utils
 
+# Counter derived from:
+# https://stackoverflow.com/a/21681534
 class Counter(object):
 	def __init__(self):
 		self._ctr = multiprocessing.Value('i', 0)
@@ -28,7 +30,8 @@ class Counter(object):
 	@property
 	def lp(self):
 		return self._lp.value
-
+		
+# Must create one global, shared counter between all processes.
 def init_ctr(counter):
 	global ctr
 	ctr = counter

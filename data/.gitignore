@@ -1,4 +1,5 @@
-*
-
-!.gitignore
-!ground/*
+impure/*/*
+pure/**/*
+models/**/*
+**/*.ten
+**/*.pth

@@ -63,7 +63,7 @@ def enumerate_verticies(incidence):
 def canonicalize(sequence):
 	return tuple(sorted(sequence, key=lambda x: (-x[0], x[1])))
 
-def contract_graphs(M,k, T, TG_incidence, count, subsequences=set(), sequence=tuple()):
+def contract_graphs(M,k, T, TG_incidence, count, subsequences, sequence):
 	if sequence in subsequences: yield None, count
 	else:
 		# Don't allow graphs with fewer than M distinct cliques.
@@ -133,7 +133,8 @@ def enumerate_pure(M, k, visited=-1):
 	for idx, T in enumerate(seed_graph(M)):
 		TG_incidence = {node:set(i for i in range(k*node, k*(node+1))) for node in T.nodes()}
 		# Must not share subsequences between different seed graphs!!!
-		for g, count in contract_graphs(M, k, T, TG_incidence, count):
+		t, s = set(), tuple()
+		for g, count in contract_graphs(M, k, T, TG_incidence, count, t, s):
 			if g is None: continue
 			if count > last_print+1000: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}")
 			if visited > 0 and visited < count: return seen_G, seed_T

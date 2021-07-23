@@ -79,14 +79,15 @@ def contract_graphs(M,k, T, TG_incidence, count, subsequences=set(), sequence=tu
 				count += 1
 				new_sequence = canonicalize(sequence+((contract_1, contract_2),))
 				if new_sequence in subsequences: continue
-				new_TG_incidence = copy.deepcopy(TG_incidence)
+
 				break_all = False
 
 				# Can't contract verticies if some clique contains c_1 and c_2.
-				for clique in new_TG_incidence.values():
+				for clique in TG_incidence.values():
 					if contract_1 in clique and contract_2 in clique: break_all = True
 				if break_all: continue
 
+				new_TG_incidence = copy.deepcopy(TG_incidence)
 				# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
 				for clique in new_TG_incidence.values():
 					start_len = len(clique)
@@ -124,7 +125,7 @@ def seed_graph(M, connected=False):
 		yield nx.convert_node_labels_to_integers(nx.line_graph(seed))
 
 def enumerate_pure(M, k, visited=-1):
-	seen_T, seen_G = [], []
+	seed_T, seen_G = [], []
 	count, last_print = 0, 0
 	# Create a seed graph with an arbitrary number of free-floating cliques.
 	# There is, as-of-yet not guidance on how to pick this number, other than
@@ -135,25 +136,32 @@ def enumerate_pure(M, k, visited=-1):
 		for g, count in contract_graphs(M, k, T, TG_incidence, count):
 			if g is None: continue
 			if count > last_print+1000: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}")
-			if visited > 0 and visited < count: return seen_G
+			if visited > 0 and visited < count: return seen_G, seed_T
 
 			G = graph_from_incidence(g)
 			gen = (nx.is_isomorphic(G, dedup) for dedup in seen_G)
-			if not any(gen): seen_G.append(G)
-	return seen_G
+			if not any(gen): 
+				seen_G.append(G)
+				seed_T.append(T)
+	return (seen_G, seed_T)
 		
 if __name__ == "__main__":
-	# Enumerate a limited number of graphs.
-	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(4, 3)
-	#lst = enumerate_pure(6,3)
-	print(len(lst))
-	for idx, g in enumerate(lst):
-		pos = nx.spring_layout(g)
-		nx.draw_networkx_nodes(g, pos)
-		nx.draw_networkx_edges(g, pos)
-		nx.draw_networkx_labels(g, pos)
-		plt.savefig(f"{idx}.png")
-		plt.clf()
-	# However, it can also enumerate all possible graphs if not given a count.
+	def main():
+		# Enumerate a limited number of graphs.
+		# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
+		lst, lst2 = enumerate_pure(4, 3, 30000)
+		#lst = enumerate_pure(6,3)
+		for idx, (g,t) in enumerate(zip(lst, lst2)):
+			fig, axes = plt.subplots(nrows=2, figsize=(4, 8))
+			pos = nx.spring_layout(g)
+			nx.draw_networkx_nodes(g, pos, ax=axes[0])
+			nx.draw_networkx_edges(g, pos, ax=axes[0])
+			nx.draw_networkx_labels(g, pos, ax=axes[0])
+			pos = nx.spring_layout(t)
+			nx.draw_networkx_nodes(t, pos, ax=axes[1])
+			nx.draw_networkx_edges(t, pos, ax=axes[1])
+			nx.draw_networkx_labels(t, pos, ax=axes[1])
+			plt.savefig(f"{idx}.png")
+			plt.clf()
+	main()
 	

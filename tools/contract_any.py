@@ -13,6 +13,21 @@ from networkx.drawing.nx_agraph import to_agraph
 import torch
 
 import graphity.utils
+def all_connected(k, TG_incidence, maybe_clique, G):
+	# We picked an existing clique, very boring
+	if set(maybe_clique) in TG_incidence.values(): return False
+	for u, v in itertools.combinations(maybe_clique, 2):
+			if u == v: continue
+			elif not G.has_edge(u, v): return False
+	else: return True
+def adds_max_clique(k, TG_incidence):
+	G = graph_from_incidence(TG_incidence)
+	ls = enumerate_verticies(TG_incidence)
+	for maybe_clique in itertools.combinations(ls, k):
+		if all_connected(k, TG_incidence, maybe_clique, G): return True
+	else: return False
+	
+	
 
 def expands_max_clique(k, center, TG_incidence):
 
@@ -92,18 +107,28 @@ def contract_graphs(M,k, T, TG_incidence, count, subsequences, sequence):
 				new_TG_incidence = copy.deepcopy(TG_incidence)
 				# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
 				for clique in new_TG_incidence.values():
-					start_len = len(clique)
-					if contract_2 in clique: clique.remove(contract_2)
-					if len(clique) != start_len: clique.add(contract_1)
+					if contract_2 in clique: 
+						clique.remove(contract_2)
+						clique.add(contract_1)
 
-				if expands_max_clique(k, contract_1, new_TG_incidence): continue
+				count_copies = [0 for i in range(len(TG_incidence))]
+				for key, clique_center in new_TG_incidence.items():
+					for clique_other in new_TG_incidence.values():
+						overlap = [vertex in clique_other for vertex in clique_center]
+						if all(overlap): count_copies[key]=count_copies[key]+1
 
-				# Do not perform edge contraction, since it can reduce max clique size.
-				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]): yield None, count
-				else:
-					for g, count in contract_graphs(M, k, T, new_TG_incidence, count, subsequences, new_sequence):
-						if g is None: continue
-						else: yield g, count
+				if any((i>1 for i in count_copies)): continue
+				
+				#G = graph_from_incidence(new_TG_incidence)
+				#nc = list(nx.find_cliques(G))
+				# I don't want to solve an NP-complete problem.
+				#if any((len(clique) != k for clique in nc)): continue
+				#elif len(nc) > M: continue
+				elif expands_max_clique(k, contract_1, new_TG_incidence): continue
+				elif adds_max_clique(k, new_TG_incidence): continue
+				for g, count in contract_graphs(M, k, T, new_TG_incidence, count, subsequences, new_sequence):
+					if g is None: continue
+					else: yield g, count
 
 # Given a list of cliques, construct the associated graph.
 def graph_from_incidence(TG_incidence):
@@ -143,7 +168,7 @@ def enumerate_pure(M, k, visited=-1):
 		t, s = set(), tuple()
 		for g, count in contract_graphs(M, k, T, TG_incidence, count, t, s):
 			if g is None: continue
-			if count > last_print+10: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}, {len(t)}")
+			if count > last_print+500: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}, {len(t)}")
 			if visited > 0 and visited < count: return seen_G, seen_T
 
 			G = graph_from_incidence(g)
@@ -152,32 +177,35 @@ def enumerate_pure(M, k, visited=-1):
 				seen_G.append(G)
 				seen_T.append(T)
 	return (seen_G, seen_T)
-		
+
+def draw(index, g, t):
+	A1 = to_agraph(t) 
+	A1.layout('dot')
+	bytes1 = A1.draw(format="png")
+
+	A1io = io.BytesIO()
+	A1io.write(bytes1)
+	A1io.seek(0)
+
+	f, ax = plt.subplots(2, 1, figsize=(4,8))
+	pos = nx.spring_layout(g)
+	nx.draw_networkx_nodes(g, pos, ax=ax[0])
+	nx.draw_networkx_edges(g, pos, ax=ax[0])
+	nx.draw_networkx_labels(g, pos, ax=ax[0])
+	ax[0].set_axis_off()
+	ax[1].imshow(mpimg.imread(A1io))
+	ax[1].set_axis_off()
+	plt.savefig(f"{index}.png")
+	plt.close()	
+
 if __name__ == "__main__":
 	def main():
 		# Enumerate a limited number of graphs.
 		# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-		lst, lst2 = enumerate_pure(4, 3)
+		lst, lst2 = enumerate_pure(5, 3, 200000)
 		#lst = enumerate_pure(6,3)
 		for idx, (g,t) in enumerate(zip(lst, lst2)):
-			A1 = to_agraph(t) 
-			A1.layout('dot')
-			bytes1 = A1.draw(format="png")
-
-			A1io = io.BytesIO()
-			A1io.write(bytes1)
-			A1io.seek(0)
-
-			f, ax = plt.subplots(2, 1, figsize=(4,8))
-			pos = nx.spring_layout(g)
-			nx.draw_networkx_nodes(g, pos, ax=ax[0])
-			nx.draw_networkx_edges(g, pos, ax=ax[0])
-			nx.draw_networkx_labels(g, pos, ax=ax[0])
-			ax[0].set_axis_off()
-			ax[1].imshow(mpimg.imread(A1io))
-			ax[1].set_axis_off()
-			plt.savefig(f"{idx}.png")
-			plt.close()
+			draw(idx, g, t)
 			
 	main()
 	

@@ -36,6 +36,22 @@ def init_ctr(counter):
 	global ctr
 	ctr = counter
 
+def all_connected(k, TG_incidence, maybe_clique, G):
+	# We picked an existing clique, very boring
+	if set(maybe_clique) in TG_incidence.values(): return False
+	for u, v in itertools.combinations(maybe_clique, 2):
+			if u == v: continue
+			elif not G.has_edge(u, v): return False
+	else: return True
+def adds_max_clique(k, TG_incidence):
+	G = graph_from_incidence(TG_incidence)
+	ls = enumerate_verticies(TG_incidence)
+	for maybe_clique in itertools.combinations(ls, k):
+		if all_connected(k, TG_incidence, maybe_clique, G): return True
+	else: return False
+	
+	
+
 def expands_max_clique(k, center, TG_incidence):
 
 	# Get all the neighbors of the center vertex, including center.
@@ -57,7 +73,7 @@ def expands_max_clique(k, center, TG_incidence):
 		# Check that there are fewer edges than in a (k+1)-complete graph.
 		if len(filtered_list)>=((k+1)*k/2): return True
 	return False
-
+	
 def shuffle(lst):
 	random.shuffle(lst)
 	return lst
@@ -95,40 +111,49 @@ def contract_graphs(M, k, T, TG_incidence, subsequences=set(), sequence=tuple())
 		for (clique1, clique2) in itertools.combinations(TG_incidence.values(), 2):
 			if all(i in clique2 for i in clique1): break
 		else:
-			ctr.increment()
 			subsequences.add(sequence)
+			ctr.increment()
 			yield TG_incidence
 
 		for (t_1, t_2) in all_adjacent_nodes(T):
 			for (contract_1, contract_2) in enumerate_incidence_pairs(t_1, t_2, TG_incidence):
 				assert contract_1 < contract_2
 				ctr.increment()
-
 				new_sequence = canonicalize(sequence+((contract_1, contract_2),))
 				if new_sequence in subsequences: continue
 
-				new_TG_incidence = copy.deepcopy(TG_incidence)
 				break_all = False
 
 				# Can't contract verticies if some clique contains c_1 and c_2.
-				for clique in new_TG_incidence.values():
+				for clique in TG_incidence.values():
 					if contract_1 in clique and contract_2 in clique: break_all = True
 				if break_all: continue
 
+				new_TG_incidence = copy.deepcopy(TG_incidence)
 				# All verticies referencing the old vertex pair before contraction must be updated to point to the contracted vertex.
 				for clique in new_TG_incidence.values():
-					start_len = len(clique)
-					if contract_2 in clique: clique.remove(contract_2)
-					if len(clique) != start_len: clique.add(contract_1)
+					if contract_2 in clique: 
+						clique.remove(contract_2)
+						clique.add(contract_1)
 
-				if expands_max_clique(k, contract_1, new_TG_incidence): continue
+				count_copies = [0 for i in range(len(TG_incidence))]
+				for key, clique_center in new_TG_incidence.items():
+					for clique_other in new_TG_incidence.values():
+						overlap = [vertex in clique_other for vertex in clique_center]
+						if all(overlap): count_copies[key]=count_copies[key]+1
 
-				# Do not perform edge contraction, since it can reduce max clique size.
-				if all([clique in new_TG_incidence[t_2] for clique in new_TG_incidence[t_1]]): yield None
-				else:
-					for g in contract_graphs(M, k, T, new_TG_incidence, subsequences, new_sequence):
-						if g is None: continue
-						else: yield g
+				if any((i>1 for i in count_copies)): continue
+				
+				#G = graph_from_incidence(new_TG_incidence)
+				#nc = list(nx.find_cliques(G))
+				# I don't want to solve an NP-complete problem.
+				#if any((len(clique) != k for clique in nc)): continue
+				#elif len(nc) > M: continue
+				elif expands_max_clique(k, contract_1, new_TG_incidence): continue
+				elif adds_max_clique(k, new_TG_incidence): continue
+				for g in contract_graphs(M, k, T, new_TG_incidence, subsequences, new_sequence):
+					if g is None: continue
+					else: yield g
 
 # Given a list of cliques, construct the associated graph.
 def graph_from_incidence(TG_incidence):

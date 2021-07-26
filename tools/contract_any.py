@@ -2,12 +2,14 @@ import copy
 import io
 import itertools
 import math
+import os
 import random
 import time
 
+import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
-from networkx.algorithms import clique
+from networkx.drawing.nx_agraph import to_agraph
 import torch
 
 import graphity.utils
@@ -155,19 +157,27 @@ if __name__ == "__main__":
 	def main():
 		# Enumerate a limited number of graphs.
 		# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-		lst, lst2 = enumerate_pure(4, 3, 30000)
+		lst, lst2 = enumerate_pure(4, 3)
 		#lst = enumerate_pure(6,3)
 		for idx, (g,t) in enumerate(zip(lst, lst2)):
-			fig, axes = plt.subplots(nrows=2, figsize=(4, 8))
+			A1 = to_agraph(t) 
+			A1.layout('dot')
+			bytes1 = A1.draw(format="png")
+
+			A1io = io.BytesIO()
+			A1io.write(bytes1)
+			A1io.seek(0)
+
+			f, ax = plt.subplots(2, 1, figsize=(4,8))
 			pos = nx.spring_layout(g)
-			nx.draw_networkx_nodes(g, pos, ax=axes[0])
-			nx.draw_networkx_edges(g, pos, ax=axes[0])
-			nx.draw_networkx_labels(g, pos, ax=axes[0])
-			pos = nx.spring_layout(t)
-			nx.draw_networkx_nodes(t, pos, ax=axes[1])
-			nx.draw_networkx_edges(t, pos, ax=axes[1])
-			nx.draw_networkx_labels(t, pos, ax=axes[1])
+			nx.draw_networkx_nodes(g, pos, ax=ax[0])
+			nx.draw_networkx_edges(g, pos, ax=ax[0])
+			nx.draw_networkx_labels(g, pos, ax=ax[0])
+			ax[0].set_axis_off()
+			ax[1].imshow(mpimg.imread(A1io))
+			ax[1].set_axis_off()
 			plt.savefig(f"{idx}.png")
-			plt.clf()
+			plt.close()
+			
 	main()
 	

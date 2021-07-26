@@ -115,14 +115,16 @@ def graph_from_incidence(TG_incidence):
 	return G
 
 # Load the seed undirected graphs.
-# Cliques live on the edge(s).
-def seed_graph(M, connected=False):
-	
-	if connected: suffix = "c"
-	else: suffix = "d1"
-
-	for idx, seed in enumerate(nx.read_graph6(f"data/undirected/{M}{suffix}.g6")):
-		yield nx.convert_node_labels_to_integers(nx.line_graph(seed))
+def seed_graph(M):
+	graphs = []
+	for filename in os.listdir(f"data/multi/{M}"):
+		if filename.endswith(".gml"):
+			G=nx.read_gml(os.path.join(f"data/multi/{M}", filename))
+			G=nx.line_graph(G)
+			G=nx.convert_node_labels_to_integers(G)
+			graphs.append(G)
+	for graph in graphs:
+		 yield nx.Graph(graph)
 
 def enumerate_pure(M, k, visited=-1):
 	seed_T, seen_G = [], []

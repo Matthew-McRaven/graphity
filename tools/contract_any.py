@@ -127,26 +127,29 @@ def seed_graph(M):
 		 yield nx.Graph(graph)
 
 def enumerate_pure(M, k, visited=-1):
-	seed_T, seen_G = [], []
+	seen_T, seen_G = [], []
 	count, last_print = 0, 0
 	# Create a seed graph with an arbitrary number of free-floating cliques.
 	# There is, as-of-yet not guidance on how to pick this number, other than
 	# there needing to be at least as many verticies as your target n.
 	for idx, T in enumerate(seed_graph(M)):
+		gen = (nx.is_isomorphic(T, dedup) for dedup in seen_T)
+		if any(gen): continue
+		print(T.nodes, T.edges)
 		TG_incidence = {node:set(i for i in range(k*node, k*(node+1))) for node in T.nodes()}
 		# Must not share subsequences between different seed graphs!!!
 		t, s = set(), tuple()
 		for g, count in contract_graphs(M, k, T, TG_incidence, count, t, s):
 			if g is None: continue
-			if count > last_print+1000: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}")
-			if visited > 0 and visited < count: return seen_G, seed_T
+			if count > last_print+10: print(f"Graphs: {(last_print:=count)}, {len(seen_G)}, {len(t)}")
+			if visited > 0 and visited < count: return seen_G, seen_T
 
 			G = graph_from_incidence(g)
 			gen = (nx.is_isomorphic(G, dedup) for dedup in seen_G)
 			if not any(gen): 
 				seen_G.append(G)
-				seed_T.append(T)
-	return (seen_G, seed_T)
+				seen_T.append(T)
+	return (seen_G, seen_T)
 		
 if __name__ == "__main__":
 	def main():

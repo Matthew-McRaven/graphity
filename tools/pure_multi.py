@@ -51,19 +51,27 @@ def enumerate_verticies(seed_cliques):
 		for vertex in clique: verticies.add(vertex)
 	return verticies
 
-def connect_graph(M, seed, seed_cliques, count):
-	if len(seed.edges) == M: yield seed, count+1
+def canonicalize(sequence):
+	return tuple(sorted(sequence, key=lambda x: (-x[0], x[1])))
+
+def connect_graph(M, seed, seed_cliques, count, subsequences, sequence):
+	if sequence in subsequences: yield None, count
+	elif len(seed.edges) == M: 
+		subsequences.add(sequence)
+		yield seed, count+1
 	elif len(seed.edges) > M: yield None, count
 	else:
 		for (t_1, t_2) in all_node_pairs(seed):
 			assert t_1 < t_2
+			new_sequence = canonicalize(sequence+((t_1, t_2),))
+			if new_sequence in subsequences: continue
 			count += 1
 			new_seed_cliques = copy.deepcopy(seed_cliques)
 			new_seed_cliques.append([t_1, t_2])
 			if expands_max_clique(2, t_1, new_seed_cliques): continue
 			new_seed = copy.deepcopy(seed)
 			new_seed.add_edge(t_1, t_2)
-			for graph, count in connect_graph(M, new_seed, new_seed_cliques, count): 
+			for graph, count in connect_graph(M, new_seed, new_seed_cliques, count, subsequences, new_sequence): 
 				if graph is None: continue
 				else: yield graph, count
 
@@ -71,7 +79,7 @@ def connect_graph(M, seed, seed_cliques, count):
 def enumerate_pure(N, M, visited=-1):
 	seen_G, count = [], 0
 	seed = nx.empty_graph(N, nx.MultiGraph())
-	for G, count in connect_graph(M, seed, [], count):
+	for G, count in connect_graph(M, seed, [], count, set(), tuple()):
 		gen = (nx.is_isomorphic(G, dedup) for dedup in seen_G)
 		if not any(gen): seen_G.append(G)
 		elif visited>0 and count>visited: break
@@ -80,7 +88,7 @@ def enumerate_pure(N, M, visited=-1):
 
 
 if __name__ == "__main__":
-	lst = enumerate_pure(5, 3)
+	lst = enumerate_pure(10, 5)
 	for idx, G in enumerate(lst):
 		nx.write_gml(G, f"{idx}.gml")
 		if False:

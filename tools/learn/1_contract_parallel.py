@@ -14,8 +14,8 @@ import graphity.utils
 # https://stackoverflow.com/a/21681534
 class Counter(object):
 	def __init__(self):
-		self._ctr = multiprocessing.Value('i', 0)
-		self._lp = multiprocessing.Value('i', 0)
+		self._ctr = multiprocessing.Value('l', 0)
+		self._lp = multiprocessing.Value('l', 0)
 	def increment(self, n=1):
 		with self._ctr.get_lock():
 			self._ctr.value += n
@@ -208,7 +208,7 @@ def enumerate_pure(M, k, visited=-1):
 if __name__ == "__main__":
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(4,3)
+	lst = enumerate_pure(5,3, 10e9)
 	#lst = enumerate_pure(6,3)
 	print(len(lst))
 	for idx, g in enumerate(lst):

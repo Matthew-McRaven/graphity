@@ -82,7 +82,7 @@ class Conv(nn.Module):
 		x = x.view(1,1, *x.shape)
 		x = self.conv(x)
 		x = self.lin(x.view(-1)).view(self.rows, self.cols)
-		return self.coef * x
+		return (self.coef * x).sum()
 
 	def stuff_weights(self, weights): assert(0)
 	def weight_count(self): assert(0)
@@ -145,28 +145,39 @@ class ACoef(nn.Module):
 		for x in self.parameters():
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
-	def apply_coef(self, x):
-		"""
-		Apply this class's transformation to a single 2D input.
-		"""
-		ret = []
-		a_series = [None for _ in range (self.rows+1)]
-		a_series[0] = x @ (x)
-		for i in range(self.rows):	
-			a_series[i+1] = x.matmul(a_series[i])
-			for j in range(self.cols): ret.append(torch.trace(a_series[i])**(j+1) / torch.numel(x)**(i+j+1))
-		terms = (self.coef * torch.stack(ret).to(x.device).view(self.rows, self.cols))
-		return terms.sum()
-
 	def stuff_weights(self, weights):
 		self.coef.weight = weights
 	def weight_count(self):
 		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
 
 	def forward(self, x):
+		# Force all data to be batched if it isn't already.
 		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		# But we don't know how to deal with batches-{of-batches}+.
 		elif len(x.shape) > 3: assert 0
-		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
+		
+		# A series is the powers of our adjacency matrix(es) X.
+		# Compute as many powers as we have rows for each adjacency matrix.
+		a_series = [torch.matrix_power(x,i+1) for i in range (1, self.rows+2)]
+		# Must swap dims (0,1) since the above code places the batch as dim 1 rather than 0.
+		a_series = torch.swapaxes(torch.stack(a_series),0,1).to(x.device)
+
+		# Element wise raise the A series to the correct power, will normalize later.
+		# Generator expression performs faster than for loop after profiling.
+		powers = list(((a_series[:,i])**(j+1)) for i in range(self.rows) for j in range(self.cols))
+		powers = torch.swapaxes(torch.stack(powers), 0,1).to(x.device)
+
+		# Cannot use torch.trace, since that only works on 2d tensors, must roll our own using diag+sum.
+		# See: https://discuss.pytorch.org/t/is-there-a-way-to-compute-matrix-trace-in-batch-broadcast-fashion/43866
+		traces = torch.diagonal(powers, dim1=-2, dim2=-1).sum(-1)
+		traces = traces.view(-1, self.rows, self.cols)
+		# The [i,j]'th position is equal to i+j+2. This is the power to which 
+		norm_pow_mat = torch.stack(list(torch.arange(0, self.cols)+i+2 for i in range(self.rows))).to(traces.device)
+		# Compute the number of elements in an individual graph
+		numel = powers.shape[-1]*powers.shape[-2]
+		# The normalization for the [i,j]'th entry of each matrix is the number of elements raised to the i+j+2'th power.
+		norm =  torch.full(traces.shape, numel).to(traces.device)**norm_pow_mat
+		return (self.coef * traces/norm).sum(dim=[-1,-2])
 
 class FACoef(nn.Module):
 	def __init__(self, rows, cols):
@@ -181,28 +192,42 @@ class FACoef(nn.Module):
 		for x in self.parameters():
 			if x.dim() > 1: nn.init.kaiming_normal_(x)
 
-	def apply_coef(self, x):
-		"""
-		Apply this class's transformation to a single 2D input.
-		"""
-		ret = []
-		_1 = torch.full(x.shape, 1.0, dtype=torch.float).to(x.device)
-		a_series = [None for _ in range (self.rows+1)]
-		a_series[0] = x.matmul(x)
-		for i in range(self.rows):	
-			a_series[i+1] = x.matmul(a_series[i])
-			for j in range(self.cols): ret.append(torch.trace(_1 @ (a_series[i].float()))**(j+1) / torch.numel(x)**(i+j+2))
-		return (self.coef * torch.stack(ret).to(x.device).view(self.rows, self.cols)).sum()
-
 	def stuff_weights(self, weights):
 		self.coef.weight = weights
 	def weight_count(self):
 		return functools.reduce(lambda x, y: x*y, self.coef.shape, 1)
 
 	def forward(self, x):
+		
+		# Force all data to be batched if it isn't already.
 		if len(x.shape) == 2: x = x.view(-1, *x.shape)
+		# But we don't know how to deal with batches-{of-batches}+.
 		elif len(x.shape) > 3: assert 0
-		return torch.stack([self.apply_coef(i) for i in x[:]]).to(x.device)
+		
+		# A series is the powers of our adjacency matrix(es) X.
+		# Compute as many powers as we have rows for each adjacency matrix.
+		a_series = [torch.matrix_power(x,i+1) for i in range (1, self.rows+2)]
+		# Must swap dims (0,1) since the above code places the batch as dim 1 rather than 0.
+		a_series = torch.swapaxes(torch.stack(a_series),0,1).to(x.device)
+
+		# Generate the full NxN matrix of 1's.
+		_1 = torch.full(x.shape[-2:], 1.0, dtype=x.dtype).to(x.device)
+		# Element wise raise the A series to the correct power, will normalize later.
+		# Generator expression performs faster than for loop after profiling.
+		powers = list((_1@(a_series[:,i])**(j+1)) for i in range(self.rows) for j in range(self.cols))
+		powers = torch.swapaxes(torch.stack(powers), 0,1).to(x.device)
+
+		# Cannot use torch.trace, since that only works on 2d tensors, must roll our own using diag+sum.
+		# See: https://discuss.pytorch.org/t/is-there-a-way-to-compute-matrix-trace-in-batch-broadcast-fashion/43866
+		traces = torch.diagonal(powers, dim1=-2, dim2=-1).sum(-1)
+		traces = traces.view(-1, self.rows, self.cols)
+		# The [i,j]'th position is equal to i+j+2. This is the power to which 
+		norm_pow_mat = torch.stack(list(torch.arange(0, self.cols)+i+2 for i in range(self.rows))).to(traces.device)
+		# Compute the number of elements in an individual graph
+		numel = powers.shape[-1]*powers.shape[-2]
+		# The normalization for the [i,j]'th entry of each matrix is the number of elements raised to the i+j+2'th power.
+		norm =  torch.full(traces.shape, numel).to(traces.device)**norm_pow_mat
+		return (self.coef * traces/norm).sum(dim=[-1,-2])
 
 class MACoef(nn.Module):
 	def __init__(self, graph_size, rows=1, cols=2):
@@ -268,46 +293,40 @@ class SumTerm(nn.Module):
 	def forward(self, x):
 		if len(x.shape) == 2: x = x.view(-1, *x.shape)
 		elif len(x.shape) > 3: assert 0
-		return torch.sigmoid(torch.stack([self.apply_coef(i) for i in x[:]]))
+		mod_sums = self.mod_list[0](x)
+		for _mod in self.mod_list[1:]: mod_sums += _mod(x)
+		return torch.sigmoid(mod_sums)
 
 def nearest(prediction, bins):
 	best_bins = np.abs(bins - prediction.item())
 	return bins[best_bins.argmin()]
 
-def evaluate(net, testloader, bins, dev,  count=None):
-	correct, total = 0, 0
-	bins = np.array(list(bins))
-	correct_pred, total_pred = {item:0 for item in bins}, {item:0 for item in bins}
+def evaluate(net, testloader, dev,  count=None, critertion=nn.MSELoss()):
+	total = 0
+	loss = 0
 	with torch.no_grad():
 		for data in testloader:
 			images, purity = data
 			images, purity = images.to(dev), purity.to(dev)
 			outputs = net(images)    
 			total += purity.size(0)
-
-			for (guess, _purity) in zip(outputs, purity):
-				guess = nearest(guess, bins)
-				_purity = nearest(_purity, bins)
-				if(_purity == guess): 
-					correct_pred[_purity.item()] += 1
-					correct += 1
-				total_pred[_purity.item()] += 1
-
+			loss += critertion(outputs, purity)
 
 			if count is None: pass
 			elif count > 0: count -= len(images)
 			elif count <= 0: break
-	return  correct/total, (correct_pred, total_pred)
+			
+	return loss/total
 
 def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epochs=100, batch_size=10, dev='cpu', n_splits=2):
 	# K-Fold cross validation from: https://www.machinecurve.com/index.php/2021/02/03/how-to-use-k-fold-cross-validation-with-pytorch/
 	dataset = graphity.data.FileGraphDataset(pure_dir, impure_dir)
 	folds = KFold(n_splits=n_splits, shuffle=True)
-	all_accuracy = []
+	all_loss = []
 	print("Generated")
-	best_config, best_accuracy = 0, 0
+	best_config, best_loss = 0, float("inf")
 	for fold, (train_ids, test_ids) in enumerate(folds.split(dataset)):
-		criterion = nn.BCELoss()
+		criterion = nn.MSELoss()
 		net = net_fn()
 		optimizer = optim.Adam(net.parameters(), lr=0.001)
 
@@ -329,17 +348,13 @@ def get_best_config(pure_dir, impure_dir, graph_size, clique_size, net_fn, epoch
 				optimizer.step()
 				
 				running_loss += loss.item()
-				if i % 10000 == 9999:    # print every 1000 mini-batches
+				if i % 3000 == 2999:    # print every 1000 mini-batches
 					print('[%d, %5d] loss: %.3f' %
-						(epoch + 1, i + 1, running_loss / 2000))
+						(epoch + 1, i + 1, running_loss / 3000))
 					running_loss = 0.0
 					
-		accuracy, (correct_pred, total_pred) = evaluate(net, testloader, test_dataset.bins, dev=dev)
-		all_accuracy.append(accuracy)
-		print(f'(k_{clique_size},g_{graph_size})Accuracy of the network on the {test_dataset.count} test images: {100 * accuracy}')
-		for classname, correct_count in correct_pred.items():
-			accuracy = 100 * float(correct_count) / total_pred[classname]
-			print("Accuracy for purity-ratio {:5f} is: {:.1f} %".format(classname, accuracy))
-		if accuracy > best_accuracy: best_config = net
+		loss = evaluate(net, testloader, dev=dev, critertion=criterion)
+		print(f'(k_{clique_size},g_{graph_size})Loss of the network on the {test_dataset.count} graphs: {loss}')
+		if loss < best_loss: best_config = net
 
-	return best_config, best_accuracy, all_accuracy
+	return best_config, best_loss, all_loss

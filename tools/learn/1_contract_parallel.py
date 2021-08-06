@@ -1,3 +1,4 @@
+import argparse
 import copy
 import itertools
 import multiprocessing
@@ -180,10 +181,9 @@ def explore_seed(M, k, T, visited=-1):
 	global ctr
 	seen_G = []
 	TG_incidence = {node:set(i for i in range(k*node, k*(node+1))) for node in T.nodes()}
-	for g in contract_graphs(M, k, T, TG_incidence):
+	for g in contract_graphs(M, k, T, TG_incidence, set(), tuple()):
 		if ctr.ctr > ctr.lp+10000: print(f"Graphs: {(ctr.print())}")
-		if visited > 0 and visited > ctr.ctr: return seen_G
-
+		if visited > 0 and int(ctr.lp) > visited: break
 		G = graph_from_incidence(g)
 		gen = (nx.is_isomorphic(G, dedup) for dedup in seen_G)
 		if not any(gen): seen_G.append(G)
@@ -195,7 +195,7 @@ def enumerate_pure(M, k, visited=-1):
 	# there needing to be at least as many verticies as your target n.
 	with multiprocessing.Manager() as manager:
 		with multiprocessing.Pool(initializer = init_ctr, initargs = (Counter(), ), processes=32) as pool:
-			procs =  [pool.apply_async(explore_seed, (M, k, T)) for T in seed_graph(M)]
+			procs =  [pool.apply_async(explore_seed, (M, k, T, visited)) for T in seed_graph(M)]
 			procs_ret = [p.get() for p in procs]
 			global_G = []
 			for proc in procs_ret:
@@ -204,19 +204,26 @@ def enumerate_pure(M, k, visited=-1):
 					elif not any((nx.is_isomorphic(G, dedup) for dedup in global_G)): global_G.append(G)
 			return global_G
 
-		
-if __name__ == "__main__":
+def main(args):
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(5,3, 10e9)
-	#lst = enumerate_pure(6,3)
+	lst = enumerate_pure(args.m,args.k, args.visited)
 	print(len(lst))
 	for idx, g in enumerate(lst):
+		nx.write_gml(g, f"data/m-pure/({args.k}-{args.m})/{idx}.gml")
 		pos = nx.spring_layout(g)
 		nx.draw_networkx_nodes(g, pos)
 		nx.draw_networkx_edges(g, pos)
 		nx.draw_networkx_labels(g, pos)
-		plt.savefig(f"{idx}.png")
+		plt.savefig(f"data/m-pure/({args.k}-{args.m})/{idx}.png")
 		plt.clf()
-	# However, it can also enumerate all possible graphs if not given a count.
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description='Generate a pure multigraph dataset.')
+	parser.add_argument('-m', required=True, type=int, help='The number of edges in the graph.')
+	parser.add_argument('-k', required=True, type=int, help='The clique size.')
+	parser.add_argument('-v', '--visited', default=-1, type=int, help='Abort search after trying this many graphs.')
+	args = parser.parse_args()
+	main(args)
+
 	

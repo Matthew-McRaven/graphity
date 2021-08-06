@@ -1,3 +1,4 @@
+import argparse
 import copy
 import io
 import itertools
@@ -7,8 +8,6 @@ import time
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from networkx.algorithms import clique
-from networkx.drawing.nx_agraph import to_agraph
 import torch
 
 import graphity.utils
@@ -86,17 +85,15 @@ def enumerate_pure(N, M, visited=-1):
 	return seen_G
 
 
+def main(args):
+	lst = enumerate_pure(args.m*2, args.m, args.visited)
+	for idx, G in enumerate(lst):
+		nx.write_gml(G, f"data/multi/{args.m}/{idx}.gml")
 
 if __name__ == "__main__":
-	lst = enumerate_pure(10, 5)
-	for idx, G in enumerate(lst):
-		nx.write_gml(G, f"{idx}.gml")
-		if False:
-			G = nx.read_gml(f"{idx}.gml")
-			A = to_agraph(G) 
-			A.layout('dot')
-			A.draw(f'{idx}.png')
-		
-
-	print(len(lst))
+	parser = argparse.ArgumentParser(description='Generate a pure multigraph dataset.')
+	parser.add_argument('-m', required=True, type=int, help='The number of edges in the graph.')
+	parser.add_argument('-v', '--visited', default=-1, type=int, help='Abort search after trying this many graphs.')
+	args = parser.parse_args()
+	main(args)
 	

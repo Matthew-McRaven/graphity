@@ -6,3 +6,4 @@ models/**/*
 models
 **/*.ten
 **/*.pth
+**/*.png

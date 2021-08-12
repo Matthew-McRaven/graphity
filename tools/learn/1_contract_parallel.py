@@ -2,7 +2,9 @@ import argparse
 import copy
 import itertools
 import multiprocessing
+from pathlib import Path
 import random
+import shutil
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -44,6 +46,7 @@ def all_connected(k, TG_incidence, maybe_clique, G):
 			if u == v: continue
 			elif not G.has_edge(u, v): return False
 	else: return True
+	
 def adds_max_clique(k, TG_incidence):
 	G = graph_from_incidence(TG_incidence)
 	ls = enumerate_verticies(TG_incidence)
@@ -207,15 +210,19 @@ def enumerate_pure(M, k, visited=-1):
 def main(args):
 	# Enumerate a limited number of graphs.
 	# Internally it will shuffle all posibilities, so that it samples from the graph space randomly(ish).
-	lst = enumerate_pure(args.m,args.k, args.visited)
+	lst = enumerate_pure(args.m, args.k, args.visited)
 	print(len(lst))
+	dir_gml = Path(f"data/m-pure/({args.k}-{args.m})/")
+	# Delete all existing data items, and re-create directory
+	if dir_gml.exists(): shutil.rmtree(dir_gml)
+	dir_gml.mkdir(parents=True, exist_ok=False)
 	for idx, g in enumerate(lst):
-		nx.write_gml(g, f"data/m-pure/({args.k}-{args.m})/{idx}.gml")
+		nx.write_gml(g, dir_gml/f"{idx}.gml")
 		pos = nx.spring_layout(g)
 		nx.draw_networkx_nodes(g, pos)
 		nx.draw_networkx_edges(g, pos)
 		nx.draw_networkx_labels(g, pos)
-		plt.savefig(f"data/m-pure/({args.k}-{args.m})/{idx}.png")
+		plt.savefig(dir_gml/f"{idx}.png")
 		plt.clf()
 
 if __name__ == "__main__":

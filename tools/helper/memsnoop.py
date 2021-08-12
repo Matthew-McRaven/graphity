@@ -1,6 +1,7 @@
 import argparse
 import re
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -17,10 +18,15 @@ def get_memory_usage(pid):
 	out = subprocess.run(["cat", f"/proc/{pid}/status"], stdout=subprocess.PIPE).stdout.decode('utf-8')
 	out = int(re.search(rss, out).group(1))
 	return 1024 * out
+
 def plot(args):
 	nums = []
-	with open(args.log, 'r') as file:
-		for line in file.readlines(): nums.append(int(line.strip())/1024**3)
+	con = sqlite3.connect(args.log)
+	cur = con.cursor()
+	for row in cur.execute('SELECT * FROM logs ORDER BY time'): 
+		v = row[1]/(1024**3)
+		print(v)
+		nums.append(v)
 
 	plt.plot(range(len(nums)), nums)
 	plt.title('title name')
@@ -31,22 +37,30 @@ def plot(args):
 def snoop(args):
 	pids = get_children(args.pid)
 	print(pids)
-	file = open(args.log, "w+")
+	con = sqlite3.connect(args.log)
+	cur = con.cursor()
+	t = 0
 
+	# Create table
+	cur.execute('DROP TABLE IF EXISTS logs')
+	cur.execute('CREATE TABLE logs (time integer, mem_size integer)')
 	def noleak_file(sig, frame):
-		file.close()
+		con.close()
 		sys.exit(0)
 	signal.signal(signal.SIGINT, noleak_file)
+
 	try:
 		while True:
+			t += 1
 			mem_usage = 0
 			for pid in pids:
 				mem_usage += get_memory_usage(pid)
 			print(mem_usage)
-			file.write(f"{mem_usage}\n")
+			cur.execute(f"INSERT INTO logs VALUES ({t}, {mem_usage})")
+			con.commit()
 			time.sleep(1)
 	except Exception:
-		file.close()
+		con.close()
 
 
 if __name__ == "__main__":

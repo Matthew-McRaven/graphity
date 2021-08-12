@@ -54,8 +54,8 @@ if __name__ == "__main__":
 		# Record data for charts
 		x_axis_data.extend(task_count*[beta])
 		mags.extend(pipelines.magnitization(aug_lattices, to_spin))
-		c.extend(pipelines.specific_heat(beta, graph_shape)(aug_lattices))
-		ms.extend(pipelines.magnetic_susceptibility(beta, graph_shape, to_spin)(aug_lattices))
+		c.extend(pipelines.specific_heat(beta, glass_shape)(aug_lattices))
+		ms.extend(pipelines.magnetic_susceptibility(beta, glass_shape, to_spin)(aug_lattices))
 		print(f"beta = {beta}")
 
 	# Create a plot object with 3 subfigures in a single row.

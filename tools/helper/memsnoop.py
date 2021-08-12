@@ -36,15 +36,17 @@ def snoop(args):
 	def noleak_file(sig, frame):
 		file.close()
 		sys.exit(0)
-	signal.signal(signal.SIGINT, signal_handlernoleak_file)
-
-	while True:
-		mem_usage = 0
-		for pid in pids:
-			mem_usage += get_memory_usage(pid)
-		print(mem_usage)
-		file.write(f"{mem_usage}\n")
-		time.sleep(1)
+	signal.signal(signal.SIGINT, noleak_file)
+	try:
+		while True:
+			mem_usage = 0
+			for pid in pids:
+				mem_usage += get_memory_usage(pid)
+			print(mem_usage)
+			file.write(f"{mem_usage}\n")
+			time.sleep(1)
+	except Exception:
+		file.close()
 
 
 if __name__ == "__main__":
